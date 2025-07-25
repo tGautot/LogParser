@@ -42,6 +42,12 @@ Parser* Parser::fromLineFormat(LineFormat* lfmt){
   return p;
 }
 
+Parser::~Parser(){
+  for(int i = 0; i < parsing_routine.size(); i++){
+    free(parsing_routine[i]);
+  }
+}
+
 void Parser::clearParsingSteps(){
   parsing_routine.clear();
 }

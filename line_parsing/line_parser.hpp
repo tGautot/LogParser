@@ -11,6 +11,7 @@ class Parser {
 public:
   
   static Parser* fromLineFormat(LineFormat* lf);
+  ~Parser();
 
   //void set_filter()
 
