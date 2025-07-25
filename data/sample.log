@@ -24,6 +24,10 @@
 0322 085353 TRACE  :......router_forward_getOI:         out inf:   9.67.116.98
 0322 085353 TRACE  :......router_forward_getOI:         gateway:   0.0.0.0
 0322 085353 TRACE  :......router_forward_getOI:         route handle:   7f5251c8
+0x00 0x01 0x02 0x03 ..Da..Ba
+0x04 0x05 0x06 0x07 ..Da..Ba
+0x08 0x09 0x0A 0x0B ..Da..Ba
+0x0C 0x0D 0x0E 0x0F ..Da..Ba
 0322 085353 INFO   :......rsvp_flow_stateMachine: state RESVED, event T1OUT
 0322 085353 TRACE  :.......rsvp_action_nHop: constructing a PATH
 0322 085353 TRACE  :.......flow_timer_start: started T1

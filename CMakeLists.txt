@@ -11,11 +11,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ================= BUILDING ======================================
 
-include_directories(parsing)
-add_subdirectory(parsing)
+include_directories(line_parsing)
+add_subdirectory(line_parsing)
 
 add_executable(LogParser main.cpp)
 
 # ================= LINKING ======================================
 
-target_link_libraries(LogParser parsing)
+target_link_libraries(LogParser line_parsing)

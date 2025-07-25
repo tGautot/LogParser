@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 
-#include "parser.hpp"
+#include "line_parser.hpp"
 
 parse_instruction_t* parseStrUntilChar(char delim){
   parse_instruction_t* str_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));
@@ -72,8 +72,18 @@ int main(int argc, char** argv){
 
   std::ifstream file(argv[1]);
   std::string line;
+  format_info_t fi;
+  fi.nint = 2;
+  fi.ndbl = 0;
+  fi.nchr = 6;
+  fi.nstr = 3;
+  ParsedLine* pl = new ParsedLine(fi);
   while(std::getline(file, line)){
-    parser.parseLine(line);
+    bool success = parser.parseLine(line, pl);
+    std::cout << "PL results: ";
+    if(success) pl->asStringToStream(std::cout);
+    else std::cout << " failure";
+    std::cout << std::endl;
   }
 
 
