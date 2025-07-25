@@ -27,29 +27,29 @@ int parse_dbl(char** s, void* void_params, void* res){
 }
 
 int parse_chr(char** s, void* void_params, void* res){
-  parse_chr_params_t* p = (parse_chr_params_t*) (void_params);
+  _ChrFieldOption* p = (_ChrFieldOption*) (void_params);
 
-  if(**s == p->to_parse){
+  if(**s == p->target){
     //*(p->res) = p->to_parse;
-    *((char*)res) = p->to_parse;
+    *((char*)res) = p->target;
     (*s)++;
   }
   else *((char*)res) = 0;
-  while(**s == p->to_parse && p->do_reapeat){
+  while(**s == p->target && p->repeat){
     (*s)++;
   }
   return 0;
 }
 
 int parse_str(char** s, void* void_params, void* res){
-  parse_str_params_t* p = (parse_str_params_t*) (void_params);
+  _StrFieldOption* p = (_StrFieldOption*) (void_params);
   //std::cout << "Parsing STR, stop type " << p->stop_type << ", delim " << p->delim << std::endl;
   int nchar = 0;
-  if(p->stop_type == STR_PARSE_STOP_NCHAR){
+  if(p->stop_type == StrFieldStopType::NCHAR){
     nchar = p->nchar;
   }
-  if(p->stop_type == STR_PARSE_STOP_DELIM){
-    while((*s)[nchar] != p->delim && (p->skip_eol || (*s)[nchar] != 0)){
+  if(p->stop_type == StrFieldStopType::DELIM){
+    while((*s)[nchar] != p->delim && (*s)[nchar] != 0){
       //std::cout << "Now at char " << nchar << ": " << (*s)[nchar] << std::endl; 
       nchar++;
     }

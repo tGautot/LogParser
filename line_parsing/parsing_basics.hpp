@@ -2,14 +2,12 @@
 #define PARSING_BASICS_HPP
 
 #include <stdint.h>
+#include "line_format.hpp"
 
-enum FieldType {
-  INT, DBL, CHR, STR
-};
 
 typedef struct parse_instruction {
   int (*parse_func)(char**, void*, void*);
-  void** format_args;
+  void* format_args;
   FieldType ft;
 } parse_instruction_t;
 
@@ -32,7 +30,7 @@ typedef struct parse_int_params {
 typedef struct parse_dbl_params {
   double* res;
 } parse_dbl_params_t;
-*/
+
 
 typedef struct parse_str_params{
   int stop_type;
@@ -54,7 +52,7 @@ typedef struct parse_chr_params{
 
   //char* res;
 } parse_chr_params_t;
-
+*/
 
 #endif
 

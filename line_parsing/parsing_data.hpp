@@ -1,25 +1,23 @@
 #ifndef PARSING_DATA_HPP
 #define PARSING_DATA_HPP
 
+#include "line_format.hpp"
+
 #include <stdint.h>
 #include <string>
 #include <iostream>
 
-typedef struct format_info {
-  int nint, ndbl, nchr, nstr;  
-} format_info_t;
-
 
 class ParsedLine {
   public:
-  format_info_t& format;
+  LineFormat& format;
 
   int64_t* int_fields;
   double* dbl_fields;
   char* chr_fields;
   char** str_fields;
 
-  ParsedLine(format_info_t& fmt);
+  ParsedLine(LineFormat& fmt);
   ParsedLine(ParsedLine&& old);
   ~ParsedLine();
 

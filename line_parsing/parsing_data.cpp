@@ -2,7 +2,7 @@
 
 #include <cstdlib>
 
-ParsedLine::ParsedLine(format_info_t& fmt) : format(fmt){
+ParsedLine::ParsedLine(LineFormat& fmt) : format(fmt){
   int_fields = (int64_t*) malloc(fmt.nint * sizeof(int64_t));
   dbl_fields = (double*) malloc(fmt.ndbl * sizeof(double));
   chr_fields = (char*) malloc(fmt.nchr * sizeof(char));

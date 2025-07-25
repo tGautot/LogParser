@@ -1,7 +1,46 @@
 #include "line_parser.hpp"
 
 
-Parser::Parser(std::istream& is) : m_is(is){}
+
+Parser* Parser::fromLineFormat(LineFormat* lfmt){
+  Parser* p = new Parser();
+
+  LineField* lfield;
+  for(int i = 0; i < lfmt->fields.size(); i++){
+    lfield = lfmt->fields[i]; 
+    if(lfield->ft == FieldType::INT){
+      parse_instruction_t* int_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
+      int_parsing->parse_func = parse_int;
+      int_parsing->format_args = nullptr;
+      int_parsing->ft = FieldType::INT;
+      p->addParsingStep(int_parsing);
+    }
+    else if(lfield->ft == FieldType::DBL){
+      parse_instruction_t* dbl_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
+      dbl_parsing->parse_func = parse_dbl;
+      dbl_parsing->format_args = nullptr;
+      dbl_parsing->ft = FieldType::DBL;
+      p->addParsingStep(dbl_parsing);
+    }
+    else if(lfield->ft == FieldType::CHR){
+      LineChrField* cf = static_cast<LineChrField*>(lfield);
+      parse_instruction_t* chr_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
+      chr_parsing->parse_func = parse_chr;
+      chr_parsing->format_args = (void*) cf->opt;
+      chr_parsing->ft = FieldType::CHR;
+      p->addParsingStep(chr_parsing);
+    }
+    else if(lfield->ft == FieldType::STR){
+      LineStrField* cf = static_cast<LineStrField*>(lfield);
+      parse_instruction_t* str_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
+      str_parsing->parse_func = parse_str;
+      str_parsing->format_args = (void*) cf->opt;
+      str_parsing->ft = FieldType::STR;
+      p->addParsingStep(str_parsing);
+    }
+  }
+  return p;
+}
 
 void Parser::clearParsingSteps(){
   parsing_routine.clear();

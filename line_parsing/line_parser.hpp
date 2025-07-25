@@ -9,8 +9,9 @@
 
 class Parser {
 public:
-  Parser(std::istream& is);
   
+  static Parser* fromLineFormat(LineFormat* lf);
+
   //void set_filter()
 
   void clearParsingSteps();
@@ -20,7 +21,6 @@ public:
 
 private:
   std::vector<parse_instruction_t*> parsing_routine;
-  std::istream& m_is;
 };
 
 
