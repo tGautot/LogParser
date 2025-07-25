@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 enum FieldType {
   INT, DBL, CHR, STR
@@ -79,18 +80,35 @@ public:
 };
 
 
+
 class LineFormat {
+  std::map<std::string, LineField*> name_to_field;
 public:
   std::vector<LineField*> fields;
   int nint, ndbl, nchr, nstr;
+
+  LineFormat() : nint(0), ndbl(0), nchr(0), nstr(0){}
 
   int getNIntFields() const { return nint; };
   int getNDoubleFields() const { return ndbl; };
   int getNCharFields() const { return nchr; };
   int getNStringFields() const { return nstr; };
 
+  LineField* getFieldFromName(std::string field_name) {
+    if(name_to_field.count(field_name) > 0){
+        return name_to_field[field_name];
+      }
+      return nullptr;
+  }
+
   void addField(LineField* lf) {
     fields.push_back(lf);
+    if(lf->name != ""){
+      if(name_to_field.count(lf->name) > 0){
+        // TODO throw error, cant have same name twice
+      }
+      name_to_field[lf->name] = lf;
+    }
     switch (lf->ft)
     {
     case FieldType::INT:

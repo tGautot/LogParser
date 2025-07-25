@@ -1,4 +1,3 @@
-
 0322 085338 TRACE  :......router_forward_getOI:         source address:   9.67.116.98
 0322 085338 TRACE  :......router_forward_getOI:         out inf:   9.67.116.98
 0322 085338 TRACE  :......router_forward_getOI:         gateway:   0.0.0.0
@@ -60,4 +59,4 @@
 0322 085424 TRACE  :......router_forward_getOI:         source address:   9.67.116.98
 0322 085424 TRACE  :......router_forward_getOI:         out inf:   9.67.116.98
 0322 085424 TRACE  :......router_forward_getOI:         gateway:   0.0.0.0
-0322 085424 TRACE  :......router_forward_getOI:         route handle:   7f5251c8
+0322 085424 TRACE  :......router_forward_getOI:         route handle:   LASTLINE

@@ -6,7 +6,7 @@
 int parse_int(char** s, void* void_params, void* res){
   //parse_int_params_t* p = (parse_int_params_t*) (*void_params);
   //*(p->res) = atol(*s);
-
+  
   *((int64_t*)res) = atol(*s);
 
   if(*((int64_t*)res) == 0 && **s != '0') return -1;
