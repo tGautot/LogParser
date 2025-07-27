@@ -33,19 +33,18 @@ int main(int argc, char** argv){
 
   std::ifstream file(argv[1]);
   std::string line;
+  ParsedLine* pl = new ParsedLine(lf);
   while(std::getline(file, line)){
-    ParsedLine* pl = new ParsedLine(*lf);
     bool success = parser->parseLine(line, pl);
     std::cout << "PL results: ";
     if(!success){
       std::cout << " failure" << std::endl;
-      delete pl;
       continue;
     }
-    pl->asStringToStream(std::cout);
+    pl->asStringToStream(std::cout, *lf);
     std::cout << "\n\tPasses TRACE filter: " << loglevel_filter.passes(pl) << std::endl;
-    delete pl;
   }
+  delete pl;
   for(int i = 0;i < lf->fields.size(); i++){
     delete lf->fields[i];
   }

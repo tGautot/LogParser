@@ -3,14 +3,14 @@
 #include <cstdlib>
 
 
-ParsedLine::ParsedLine(LineFormat& fmt) : format(fmt){
-  int_fields = new int64_t[fmt.nint]; //(int64_t*) malloc(fmt.nint * sizeof(int64_t));
-  dbl_fields = new double[fmt.ndbl];//(double*) malloc(fmt.ndbl * sizeof(double));
-  chr_fields = new char[fmt.nchr];//(char*) malloc(fmt.nchr * sizeof(char));
-  str_fields = new std::string_view[fmt.nstr];//(std::string_view*) calloc(fmt.nstr, sizeof(str_ref));
+ParsedLine::ParsedLine(LineFormat* fmt){
+  int_fields = new int64_t[fmt->nint]; //(int64_t*) malloc(fmt.nint * sizeof(int64_t));
+  dbl_fields = new double[fmt->ndbl];//(double*) malloc(fmt.ndbl * sizeof(double));
+  chr_fields = new char[fmt->nchr];//(char*) malloc(fmt.nchr * sizeof(char));
+  str_fields = new std::string_view[fmt->nstr];//(std::string_view*) calloc(fmt.nstr, sizeof(str_ref));
 }
 
-ParsedLine::ParsedLine(ParsedLine&& old) : format(old.format), int_fields(old.int_fields), dbl_fields(old.dbl_fields), chr_fields(old.chr_fields), str_fields(old.str_fields){
+ParsedLine::ParsedLine(ParsedLine&& old) : int_fields(old.int_fields), dbl_fields(old.dbl_fields), chr_fields(old.chr_fields), str_fields(old.str_fields){
 
   old.int_fields = nullptr;
   old.dbl_fields = nullptr;
@@ -27,7 +27,7 @@ ParsedLine::~ParsedLine(){
   delete[] str_fields;
 }
 
-void ParsedLine::asStringToStream(std::ostream& os){
+void ParsedLine::asStringToStream(std::ostream& os, LineFormat& format){
   int i;
   os << "ParsedLine: ints(";
   for(i = 0; i < format.nint-1; i++) os << *getIntField(i) << ", ";

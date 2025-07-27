@@ -4,7 +4,8 @@
 
 Parser* Parser::fromLineFormat(LineFormat* lfmt){
   Parser* p = new Parser();
-
+  p->format = lfmt;
+  if(lfmt == nullptr) return p;
   LineField* lfield;
   for(int i = 0; i < lfmt->fields.size(); i++){
     lfield = lfmt->fields[i]; 
@@ -57,6 +58,7 @@ void Parser::addParsingStep(parse_instruction_t* inst){
 }
 
 bool Parser::parseLine(std::string_view line, ParsedLine* ret){
+  if(format == nullptr) return false;
 
   std::vector<parse_instruction_t*>::iterator iter;
 

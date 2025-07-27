@@ -11,14 +11,13 @@
 
 class ParsedLine {
   public:
-  LineFormat& format;
 
   int64_t* int_fields;
   double* dbl_fields;
   char* chr_fields;
   std::string_view* str_fields;
 
-  ParsedLine(LineFormat& fmt);
+  ParsedLine(LineFormat* fmt);
   ParsedLine(ParsedLine&& old);
   ~ParsedLine();
 
@@ -27,7 +26,7 @@ class ParsedLine {
   char* getChrField(int id){ return chr_fields + id; }
   std::string_view* getStrField(int id){ return str_fields + id; }
 
-  void asStringToStream(std::ostream& os);
+  void asStringToStream(std::ostream& os, LineFormat& fmt);
 };
 
 

@@ -20,6 +20,7 @@ public:
 
   bool parseLine(std::string_view line, ParsedLine* ret);
 
+  LineFormat* format;
 private:
   std::vector<parse_instruction_t*> parsing_routine;
 };
