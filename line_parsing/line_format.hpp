@@ -15,6 +15,7 @@ public:
   FieldType ft;
 
   LineField(std::string field_name, FieldType field_type) : name(field_name), ft(field_type) {} 
+  virtual ~LineField() {}
 };
 
 
@@ -22,11 +23,13 @@ public:
 class LineIntField : public LineField {
 public:
   LineIntField(std::string field_name) : LineField(field_name, FieldType::INT) {}
+  ~LineIntField() {}
 };
 
 class LineDblField : public LineField {
 public:
   LineDblField(std::string field_name) : LineField(field_name, FieldType::DBL) {}
+  ~LineDblField() {}
 };
 
 class _ChrFieldOption {
@@ -43,7 +46,7 @@ public:
   LineChrField(std::string field_name, char target, bool repeat) : LineField(field_name, FieldType::CHR) {
     opt = new _ChrFieldOption(target, repeat);
   }
-  ~LineChrField(){
+  ~LineChrField() {
     delete opt;
   }
 };
@@ -59,15 +62,6 @@ public:
   int nchar;
 
   _StrFieldOption(StrFieldStopType st, char lim, int n) : stop_type(st), delim(lim), nchar(n){};
-
-  /*static _StrFieldOption* untilChar(char delim){
-    return new _StrFieldOption(StrFieldStopType::DELIM, delim, 0);
-  }
-  static _StrFieldOption* forNChar(int n){
-    return new _StrFieldOption(StrFieldStopType::NCHAR, 0, n);
-  }*/
-  
-
 };
 
 class LineStrField : public LineField {
@@ -76,6 +70,9 @@ public:
 
   LineStrField(std::string field_name, StrFieldStopType st, char lim, int n) : LineField(field_name, FieldType::STR) {
     opt = new _StrFieldOption(st, lim, n);
+  }
+  ~LineStrField() {
+    delete opt;
   }
 };
 

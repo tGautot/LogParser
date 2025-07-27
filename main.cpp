@@ -13,38 +13,44 @@ int main(int argc, char** argv){
   }
 
 
-  LineFormat lf;
-  lf.addField(new LineIntField("Date"));
-  lf.addField(new LineChrField("", ' ', true));
-  lf.addField(new LineIntField("Time"));
-  lf.addField(new LineChrField("", ' ', true));
-  lf.addField(new LineStrField("Level", StrFieldStopType::DELIM, ' ', 0));
-  lf.addField(new LineChrField("", ' ', true));
-  lf.addField(new LineChrField("", ':', false));
-  lf.addField(new LineChrField("", '.', true));
-  lf.addField(new LineStrField("Source", StrFieldStopType::DELIM, ':', 0));
-  lf.addField(new LineChrField("", ':', false));
-  lf.addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
+  LineFormat* lf = new LineFormat();
+  lf->addField(new LineIntField("Date"));
+  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new LineIntField("Time"));
+  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new LineStrField("Level", StrFieldStopType::DELIM, ' ', 0));
+  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new LineChrField("", ':', false));
+  lf->addField(new LineChrField("", '.', true));
+  lf->addField(new LineStrField("Source", StrFieldStopType::DELIM, ':', 0));
+  lf->addField(new LineChrField("", ':', false));
+  lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
 
-  Parser* parser = Parser::fromLineFormat(&lf);
+  Parser* parser = Parser::fromLineFormat(lf);
  
   char* trace_level = "TRACE";
-  LineFilter loglevel_filter(&lf, "Level", FilterComparison::EQUAL, (void*)(&trace_level), false);
+  LineFilter loglevel_filter(lf, "Level", FilterComparison::EQUAL, (void*)(&trace_level), false);
 
   std::ifstream file(argv[1]);
   std::string line;
-  ParsedLine* pl = new ParsedLine(lf);
   while(std::getline(file, line)){
+    ParsedLine* pl = new ParsedLine(*lf);
     bool success = parser->parseLine(line, pl);
     std::cout << "PL results: ";
     if(!success){
       std::cout << " failure" << std::endl;
+      delete pl;
+      continue;
     }
     pl->asStringToStream(std::cout);
     std::cout << "\n\tPasses TRACE filter: " << loglevel_filter.passes(pl) << std::endl;
+    delete pl;
   }
-
-
+  for(int i = 0;i < lf->fields.size(); i++){
+    delete lf->fields[i];
+  }
+  delete lf;
+  delete parser;
 
 
 }
