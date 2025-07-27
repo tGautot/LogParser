@@ -18,7 +18,7 @@ public:
   void clearParsingSteps();
   void addParsingStep(parse_instruction_t* inst);
 
-  bool parseLine(std::string& line, ParsedLine* ret);
+  bool parseLine(std::string_view line, ParsedLine* ret);
 
 private:
   std::vector<parse_instruction_t*> parsing_routine;

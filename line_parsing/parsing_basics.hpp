@@ -6,16 +6,16 @@
 
 
 typedef struct parse_instruction {
-  int (*parse_func)(char**, void*, void*);
+  int (*parse_func)(const char**, void*, void*);
   void* format_args;
   FieldType ft;
 } parse_instruction_t;
 
 
-int parse_int(char** s, void* fmtagrs, void* res);
-int parse_dbl(char** s, void* fmtagrs, void* res);
-int parse_str(char** s, void* fmtagrs, void* res);
-int parse_chr(char** s, void* fmtagrs, void* res);
+int parse_int(const char** s, void* fmtagrs, void* res);
+int parse_dbl(const char** s, void* fmtagrs, void* res);
+int parse_str(const char** s, void* fmtagrs, void* res);
+int parse_chr(const char** s, void* fmtagrs, void* res);
 
 
 #define STR_PARSE_STOP_DELIM 0

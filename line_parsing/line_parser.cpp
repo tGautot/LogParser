@@ -56,12 +56,11 @@ void Parser::addParsingStep(parse_instruction_t* inst){
   parsing_routine.push_back(inst);
 }
 
-bool Parser::parseLine(std::string& line, ParsedLine* ret){
+bool Parser::parseLine(std::string_view line, ParsedLine* ret){
 
   std::vector<parse_instruction_t*>::iterator iter;
 
-  char* start_s = line.data();
-  char* s = start_s;
+  const char* s = line.data();
   int nint_parsed = 0, ndbl_parsed = 0, nchr_parsed = 0, nstr_parsed = 0;
   for(iter = parsing_routine.begin(); iter != parsing_routine.end(); iter++){
     parse_instruction_t* inst = *iter;

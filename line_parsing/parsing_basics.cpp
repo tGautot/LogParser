@@ -3,7 +3,7 @@
 #include <cstring>
 #include <iostream>
 
-int parse_int(char** s, void* void_params, void* res){
+int parse_int(const char** s, void* void_params, void* res){
   //parse_int_params_t* p = (parse_int_params_t*) (*void_params);
   //*(p->res) = atol(*s);
   
@@ -14,7 +14,7 @@ int parse_int(char** s, void* void_params, void* res){
   return 0;
 }
 
-int parse_dbl(char** s, void* void_params, void* res){
+int parse_dbl(const char** s, void* void_params, void* res){
   //parse_dbl_params_t* p = (parse_dbl_params_t*) (*void_params);
   //*(p->res) = atof(*s);
   
@@ -26,7 +26,7 @@ int parse_dbl(char** s, void* void_params, void* res){
   return 0;
 }
 
-int parse_chr(char** s, void* void_params, void* res){
+int parse_chr(const char** s, void* void_params, void* res){
   _ChrFieldOption* p = (_ChrFieldOption*) (void_params);
 
   if(**s == p->target){
@@ -41,7 +41,7 @@ int parse_chr(char** s, void* void_params, void* res){
   return 0;
 }
 
-int parse_str(char** s, void* void_params, void* res){
+int parse_str(const char** s, void* void_params, void* res){
   _StrFieldOption* p = (_StrFieldOption*) (void_params);
   //std::cout << "Parsing STR, stop type " << p->stop_type << ", delim " << p->delim << std::endl;
   int nchar = 0;
