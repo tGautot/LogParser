@@ -2,11 +2,12 @@
 
 #include <cstdlib>
 
+
 ParsedLine::ParsedLine(LineFormat& fmt) : format(fmt){
-  int_fields = (int64_t*) malloc(fmt.nint * sizeof(int64_t));
-  dbl_fields = (double*) malloc(fmt.ndbl * sizeof(double));
-  chr_fields = (char*) malloc(fmt.nchr * sizeof(char));
-  str_fields = (char**) calloc(fmt.nstr, sizeof(char*));
+  int_fields = new int64_t[fmt.nint]; //(int64_t*) malloc(fmt.nint * sizeof(int64_t));
+  dbl_fields = new double[fmt.ndbl];//(double*) malloc(fmt.ndbl * sizeof(double));
+  chr_fields = new char[fmt.nchr];//(char*) malloc(fmt.nchr * sizeof(char));
+  str_fields = new std::string_view[fmt.nstr];//(std::string_view*) calloc(fmt.nstr, sizeof(str_ref));
 }
 
 ParsedLine::ParsedLine(ParsedLine&& old) : format(old.format), int_fields(old.int_fields), dbl_fields(old.dbl_fields), chr_fields(old.chr_fields), str_fields(old.str_fields){
@@ -19,13 +20,11 @@ ParsedLine::ParsedLine(ParsedLine&& old) : format(old.format), int_fields(old.in
 }
 
 ParsedLine::~ParsedLine(){
-  for(int i = 0; i < format.nstr; i++){
-    if(str_fields[i] != nullptr) free(str_fields[i]);
-  }
-  free(int_fields);
-  free(dbl_fields);
-  free(chr_fields);
-  free(str_fields);
+  
+  delete[] int_fields;
+  delete[] dbl_fields;
+  delete[] chr_fields;
+  delete[] str_fields;
 }
 
 void ParsedLine::asStringToStream(std::ostream& os){

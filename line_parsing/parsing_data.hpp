@@ -8,6 +8,7 @@
 #include <iostream>
 
 
+
 class ParsedLine {
   public:
   LineFormat& format;
@@ -15,7 +16,7 @@ class ParsedLine {
   int64_t* int_fields;
   double* dbl_fields;
   char* chr_fields;
-  char** str_fields;
+  std::string_view* str_fields;
 
   ParsedLine(LineFormat& fmt);
   ParsedLine(ParsedLine&& old);
@@ -24,7 +25,7 @@ class ParsedLine {
   int64_t* getIntField(int id){ return int_fields + id; }
   double* getDblField(int id){ return dbl_fields + id; }
   char* getChrField(int id){ return chr_fields + id; }
-  char** getStrField(int id){ return str_fields + id; }
+  std::string_view* getStrField(int id){ return str_fields + id; }
 
   void asStringToStream(std::ostream& os);
 };

@@ -54,12 +54,9 @@ int parse_str(char** s, void* void_params, void* res){
       nchar++;
     }
   }
-  //*(p->res) = (char*) malloc(p->nchar * sizeof(char));
   
-  *((char**)res) = (char*) malloc((nchar+1) * sizeof(char));
-  
-  strncpy(*((char**)res), *s, nchar);
-  (*((char**)res))[nchar] = 0;
+  std::string_view* res_sv = (std::string_view*) res;
+  *res_sv = std::string_view(*s, nchar);
   *s += nchar;
   return 0;
 }
