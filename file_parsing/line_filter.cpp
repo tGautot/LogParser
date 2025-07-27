@@ -1,5 +1,6 @@
 #include "line_filter.hpp"
 
+#include <exception>
 
 LineFilter::LineFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, void* base_val, bool neg_cmp){
   comp = cmp;
@@ -7,7 +8,7 @@ LineFilter::LineFilter(LineFormat* lfmt, std::string field_name, FilterCompariso
 
   targetField = lfmt->getFieldFromName(field_name);
   if(targetField == nullptr){
-    // TODO throw error
+    throw new std::invalid_argument("LineFilter error: Couldn't find field named " + field_name);
   }
   parsedFieldId = 0;
   int i;
@@ -36,7 +37,7 @@ LineFilter::LineFilter(LineFormat* lfmt, std::string field_name, FilterCompariso
     break;
   
   default:
-    // TODO throw unsupported field type
+    throw new std::runtime_error("Unexpected field type");
     break;
   }
 
@@ -54,7 +55,7 @@ bool LineFilter::int_passes(ParsedLine* pl){
   case FilterComparison::GREATER:
     return field_val > val_int;
   default:
-    // TODO throw unsupported operation
+    throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type INT");
     return false;
   }
 }
@@ -71,7 +72,7 @@ bool LineFilter::dbl_passes(ParsedLine* pl){
   case FilterComparison::GREATER:
     return field_val > val_dbl;
   default:
-    // TODO throw unsupported operation
+    throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type DBL");
     return false;
   }
 }
@@ -88,13 +89,13 @@ bool LineFilter::chr_passes(ParsedLine* pl){
   case FilterComparison::GREATER:
     return field_val > val_chr;
   default:
-    // TODO throw unsupported operation
+    throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type CHR");
     return false;
   }
 }
 
 bool LineFilter::str_passes(ParsedLine* pl){
-  std::string field_val(*(pl->getStrField(parsedFieldId)));
+  std::string_view field_val(*(pl->getStrField(parsedFieldId)));
   //std::cout << "Checking STR filter with cmp " << comp << " and base val " << val_str << " vs field val " << field_val << std::endl;
   switch (comp)
   {
@@ -114,12 +115,12 @@ bool LineFilter::str_passes(ParsedLine* pl){
       return (sdelta < 0) ? false : (field_val.find(val_str, sdelta) == sdelta);
     }
   default:
-    // TODO throw unsupported operation
+    throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type STR");
     break;
   }
   return false;
 }
 
 bool LineFilter::passes(ParsedLine* pl){
-  return (this->*pass_fn)(pl);
+  return (this->*pass_fn)(pl) ^ neg;
 }
