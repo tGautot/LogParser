@@ -6,10 +6,15 @@
 #include "line_filter.hpp"
 #include "line_parser.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <stdint.h>
 #include <fstream>
+
+#define LP_PREV_BLOCK 0
+#define LP_MAIN_BLOCK 1
+#define LP_NEXT_BLOCK 2
 
 typedef uint64_t line_t;
 
@@ -37,21 +42,31 @@ private:
 
   line_t active_line;
 
-  std::vector<ProcessedLine*> tmp_line_block;
-  std::vector<ProcessedLine*> line_blocks[3];
+  std::vector<ProcessedLine*>* tmp_line_block;
+  std::vector<ProcessedLine*>* line_blocks[3];
 
-  std::vector<ProcessedLine*>& getPrevBlock() { return line_blocks[0]; }
-  std::vector<ProcessedLine*>& getCurrBlock() { return line_blocks[1]; }
-  std::vector<ProcessedLine*>& getNextBlock() { return line_blocks[2]; }
-
+  
   // Number of lines per block
   int block_size;
-
+  
   // Currently only supports AND between filters
   std::vector<std::shared_ptr<LineFilter>> filters;
-
+  
   bool filters_enabled;
+  
+  int curr_main_block_id;
+  
+  std::vector<ProcessedLine*>* getPrevBlock() { return line_blocks[LP_PREV_BLOCK]; }
+  std::vector<ProcessedLine*>* getMainBlock() { return line_blocks[LP_MAIN_BLOCK]; }
+  std::vector<ProcessedLine*>* getNextBlock() { return line_blocks[LP_NEXT_BLOCK]; }
 
+  line_t getPrevBlockStartLine(){ return (curr_main_block_id-1) * block_size; }
+  line_t getMainBlockStartLine(){ return (curr_main_block_id  ) * block_size; }
+  line_t getNextBlockStartLine(){ return (curr_main_block_id+1) * block_size; }
+
+  line_t getPrevBlockEndLine(){ return (curr_main_block_id  ) * block_size - 1; }
+  line_t getMainBlockEndLine(){ return (curr_main_block_id+1) * block_size - 1; }
+  line_t getNextBlockEndLine(){ return (curr_main_block_id+2) * block_size - 1; }
 
   void slideBlocksForward(int one_or_two);
   void slideBlocksBackward(int one_or_two);
@@ -59,6 +74,7 @@ private:
 public:
 
   FileParser(std::string fname, int bsize = 10000);
+  ~FileParser();
 
   void setLineFormat(LineFormat* lf);
 
