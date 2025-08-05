@@ -44,6 +44,7 @@ private:
 
   std::vector<ProcessedLine*>* tmp_line_block;
   std::vector<ProcessedLine*>* line_blocks[3];
+  std::vector<char> raw_blocks[3];
 
   
   // Number of lines per block
@@ -60,16 +61,23 @@ private:
   std::vector<ProcessedLine*>* getMainBlock() { return line_blocks[LP_MAIN_BLOCK]; }
   std::vector<ProcessedLine*>* getNextBlock() { return line_blocks[LP_NEXT_BLOCK]; }
 
-  line_t getPrevBlockStartLine(){ return (curr_main_block_id-1) * block_size; }
-  line_t getMainBlockStartLine(){ return (curr_main_block_id  ) * block_size; }
-  line_t getNextBlockStartLine(){ return (curr_main_block_id+1) * block_size; }
+  line_t getBlockStartLine(int which) { return (curr_main_block_id-1+which) * block_size;}
+  line_t getPrevBlockStartLine(){ return getBlockStartLine(LP_PREV_BLOCK); }
+  line_t getMainBlockStartLine(){ return getBlockStartLine(LP_MAIN_BLOCK); }
+  line_t getNextBlockStartLine(){ return getBlockStartLine(LP_NEXT_BLOCK); }
 
-  line_t getPrevBlockEndLine(){ return (curr_main_block_id  ) * block_size - 1; }
-  line_t getMainBlockEndLine(){ return (curr_main_block_id+1) * block_size - 1; }
-  line_t getNextBlockEndLine(){ return (curr_main_block_id+2) * block_size - 1; }
+  line_t getBlockEndLine(int which) { return (curr_main_block_id+which) * block_size; }
+  line_t getPrevBlockEndLine(){ return getBlockEndLine(LP_PREV_BLOCK); }
+  line_t getMainBlockEndLine(){ return getBlockEndLine(LP_MAIN_BLOCK); }
+  line_t getNextBlockEndLine(){ return getBlockEndLine(LP_NEXT_BLOCK); }
 
   void slideBlocksForward(int one_or_two);
   void slideBlocksBackward(int one_or_two);
+
+  void fillBlock(int which);
+  void fillPrevBlock(){ fillBlock(LP_PREV_BLOCK); }
+  void fillMainBlock(){ fillBlock(LP_MAIN_BLOCK); }
+  void fillNextBlock(){ fillBlock(LP_NEXT_BLOCK); }
 
 public:
 
