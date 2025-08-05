@@ -2,7 +2,13 @@
 
 #include <exception>
 
-ProcessedLine::ProcessedLine(line_t line, std::string_view sv, Parser* p) : line_num(line), raw_line(sv) {
+ProcessedLine::ProcessedLine(line_t line, std::string_view& sv, Parser* p) {
+  set_data(line, sv, p);
+}
+
+void  ProcessedLine::set_data(line_t line, std::string_view& sv, Parser* p) {
+  line_num = line;
+  raw_line = raw_line;
   if(p->format == nullptr){
     pl = nullptr;
     well_formated = false;
@@ -45,6 +51,14 @@ FileParser::~FileParser(){
   delete line_blocks[LP_MAIN_BLOCK];
   delete line_blocks[LP_NEXT_BLOCK];
   delete tmp_line_block;
+}
+
+void FileParser::setLineFormat(LineFormat* lf){
+  // TODO
+}
+
+void FileParser::setParser(Parser* p){
+  parser = p;
 }
 
 void FileParser::slideBlocksForward(int one_or_two){
@@ -94,21 +108,24 @@ void FileParser::fillBlock(int which){
     }
   }
 
-  int bstt = blocks_offsets[glbl_block_id-1];
-  is.seekg(bstt);
+  int blockoffset = blocks_offsets[glbl_block_id-1];
+  is.seekg(blockoffset);
+  int block_line_nbr = getBlockStartLine(which);
   size_t curr_arr_id = 0, next_arr_id = 0;
   size_t tot_size = raw_blocks[which].size();
   for(int i = 0; i < block_size; i++){
     // getline will read until \n 
     // which will be extracted and counted for gcount but not stored
-    is.getline(raw_blocks[which].data() + curr_arr_id, tot_size - curr_arr_id);
+    char* arr_stt = raw_blocks[which].data() + curr_arr_id;
+    is.getline(arr_stt, tot_size - curr_arr_id);
     if(is.fail()){
       // TODO
     }
     if(is.eof()) break;
     next_arr_id = curr_arr_id + is.gcount() + 1;
     raw_blocks[which][next_arr_id - 1] = '\0';
-    // TODO call parser
+    std::string_view sv(arr_stt);
+    line_blocks[which]->at(i)->set_data(block_line_nbr + i, sv, parser);
     curr_arr_id = next_arr_id;
   }
       

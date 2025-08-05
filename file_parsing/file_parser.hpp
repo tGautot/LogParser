@@ -24,15 +24,18 @@ class ProcessedLine {
   std::string_view raw_line;
   bool well_formated;
   ParsedLine* pl;
-
-  ProcessedLine(line_t line, std::string_view sv, Parser* p);
+public:
+  ProcessedLine(line_t line, std::string_view& sv, Parser* p);
   ~ProcessedLine();
 
+  void set_data(line_t line, std::string_view& sv, Parser* p);
 
 };
 
 class FileParser {
 private:
+  Parser* parser;
+
   std::ifstream is;
   LineFormat* line_format;
 
@@ -85,6 +88,7 @@ public:
   ~FileParser();
 
   void setLineFormat(LineFormat* lf);
+  void setParser(Parser* p);
 
   void addFilter(std::shared_ptr<LineFilter> lf);
   void clearFilters();
