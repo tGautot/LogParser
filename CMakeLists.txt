@@ -18,6 +18,8 @@ add_subdirectory(file_parsing)
 
 add_executable(LogParser main.cpp)
 
+add_subdirectory(frontends)
+
 # ================= LINKING ======================================
 
 target_link_libraries(LogParser line_parsing filtering)
