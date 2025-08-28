@@ -19,34 +19,66 @@
 typedef uint64_t line_t;
 
 class ProcessedLine {
+public:
   line_t line_num;
   // Read only, but we need to be carefull about scoping of original data
   std::string_view raw_line;
   bool well_formated;
   ParsedLine* pl;
-public:
-  ProcessedLine(line_t line, std::string_view& sv, Parser* p);
+
+  ProcessedLine(line_t line, char* s, size_t n_char, Parser* p);
   ~ProcessedLine();
 
-  void set_data(line_t line, std::string_view& sv, Parser* p);
+  void set_data(line_t line, char* s, size_t n_char, Parser* p);
 
 };
 
-class FileParser {
+class FilteredFileReader {
 private:
-  Parser* parser;
+  LineFormat* m_lf;
+  LineFilter* m_filter;
+  Parser* m_line_parser;
+  const size_t m_max_chars_per_line;
+  bool m_accept_bad_format = false;
 
-  std::ifstream is;
-  LineFormat* line_format;
+  std::ifstream m_is;
+  line_t m_curr_line;
+  static const line_t m_checkpoint_dist = 1000;
+  std::vector<std::streampos> m_checkpoints;
+  
+  // Pair of [incl; incl] line numbers which we know are filtered out
+  std::vector<std::pair<line_t, line_t>> m_filtered_out_lines;
+
+  size_t readRawLine(char* s, uint32_t max_chars);
+  void skipNextRawLines(line_t n);
+  void incrCurrLine();
+  void addFilteredOutGroup(line_t stt, line_t end, uint64_t idx);
+
+public:
+  FilteredFileReader(std::string& fname, LineFormat* lf);
+  FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter);
+
+  size_t getMaxCharsPerLine() { return m_max_chars_per_line; }
+
+  void seekRawLine(line_t line_num);
+  // Needs to be given storage to store the line (needs at most m_max_chars_per_line bytes)
+  // and a ProcessedLine which the function will populate
+  // It will return the number of character read/stored (again, at most m_max_chars_per_line)
+  size_t getNextValidLine(char* dest, ProcessedLine& pl);
+};
+
+class LogParserInterface {
+private:
+  FilteredFileReader* ffr;
 
   //std::vector<ProcessedLine*> pl_pool;
   
-  std::vector<std::streampos> blocks_offsets;
 
   line_t active_line;
 
   std::vector<ProcessedLine*>* tmp_line_block;
   std::vector<ProcessedLine*>* line_blocks[3];
+
   std::vector<char> raw_blocks[3];
 
   
@@ -64,16 +96,6 @@ private:
   std::vector<ProcessedLine*>* getMainBlock() { return line_blocks[LP_MAIN_BLOCK]; }
   std::vector<ProcessedLine*>* getNextBlock() { return line_blocks[LP_NEXT_BLOCK]; }
 
-  line_t getBlockStartLine(int which) { return (curr_main_block_id-1+which) * block_size;}
-  line_t getPrevBlockStartLine(){ return getBlockStartLine(LP_PREV_BLOCK); }
-  line_t getMainBlockStartLine(){ return getBlockStartLine(LP_MAIN_BLOCK); }
-  line_t getNextBlockStartLine(){ return getBlockStartLine(LP_NEXT_BLOCK); }
-
-  line_t getBlockEndLine(int which) { return (curr_main_block_id+which) * block_size; }
-  line_t getPrevBlockEndLine(){ return getBlockEndLine(LP_PREV_BLOCK); }
-  line_t getMainBlockEndLine(){ return getBlockEndLine(LP_MAIN_BLOCK); }
-  line_t getNextBlockEndLine(){ return getBlockEndLine(LP_NEXT_BLOCK); }
-
   void slideBlocksForward(int one_or_two);
   void slideBlocksBackward(int one_or_two);
 
@@ -84,23 +106,20 @@ private:
 
 public:
 
-  FileParser(std::string fname, int bsize = 10000);
-  ~FileParser();
+  LogParserInterface(std::string fname, LineFormat* fmt, LineFilter* fltr, int bsize = 10000);
+  ~LogParserInterface();
 
   void setLineFormat(LineFormat* lf);
-  void setParser(Parser* p);
-
-  void addFilter(std::shared_ptr<LineFilter> lf);
-  void clearFilters();
-
-  void setFiltersEnabled(bool v) { filters_enabled = v; }
-  bool areFiltersEnabled() { return filters_enabled; }
+  void setFilter(std::shared_ptr<LineFilter> lf);
+  void clearFilter();
 
   void setActiveLine(line_t line);
 
+  std::vector<std::string_view> getFromFirstLine(size_t count);
   std::vector<std::string_view> getLines(line_t from, line_t count);
+  std::vector<std::string_view> getFromLastLine(size_t count);
 
-  std::vector<line_t> findOccurences(std::string match, line_t from, bool forward = true);
+  line_t findNextOccurence(std::string match, line_t from, bool forward = true);
   
 };
 

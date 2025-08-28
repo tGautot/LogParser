@@ -7,6 +7,9 @@
 
 #include <string>
 
+#include "file_parser.hpp"
+
+
 #define CTRL_CHR(c) (c & 0x1f)
 
 #define ESC_CHR '\x1b'
@@ -221,12 +224,12 @@ int main(){
   while (1) {
     if(getWindowSize(&cfg.nrows, &cfg.ncols) == -1) die("getWindowSize");
     //todraw += ESC_CMD "2J";
-    todraw += ESC_CMD "?25l";
-    todraw += ESC_CMD "H";
+    todraw += ESC_CMD "?25l"; // Disable cursor display
+    todraw += ESC_CMD "H"; // Set cursor at top left position
     drawRows(todraw);
     snprintf(buf, 32, ESC_CMD "%d;%dH", cfg.cy+1, cfg.cx+1);
     todraw += buf;
-    todraw += ESC_CMD "?25h";
+    todraw += ESC_CMD "?25h"; // enable cursor display
     write(STDOUT_FILENO, todraw.data(), todraw.size());
     handleInput();
   }
