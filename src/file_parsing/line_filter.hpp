@@ -8,7 +8,7 @@
 
 enum FilterComparison {
   // For all types
-  EQUAL, SMALLER, GREATER,
+  EQUAL, SMALLER, GREATER, GREATER_EQ, SMALLER_EQ,
 
   // Just for Str
   CONTAINS, BEGINS_WITH, ENDS_WITH

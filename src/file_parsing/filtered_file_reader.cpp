@@ -1,5 +1,6 @@
 #include "filtered_file_reader.hpp"
 
+#include <iostream>
 #include <vector>
 #include <deque>
 
@@ -55,6 +56,10 @@ size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
 void FilteredFileReader::skipNextRawLines(line_t n){
   
   while(n){
+    if(m_is.eof()){
+      incrCurrLine();
+      return;
+    }
     m_is.getline(trash, TRASH_SIZE);
     // if line is > than 1024 char, getline sets failbit
     if(m_is.fail()) continue;
@@ -65,8 +70,9 @@ void FilteredFileReader::skipNextRawLines(line_t n){
 
 int FilteredFileReader::addFilteredOutGroup(line_t stt, line_t end, uint64_t idx){
   // Want to just insert but might need to merge left/right/both
+  std::cout << "addFilteredOutGroup " << stt << " " << end << " " << idx << std::endl;
   bool need_left_merge = idx > 0 && stt <= m_filtered_out_lines[idx-1].second + 1;
-  bool need_right_merge = idx < m_filtered_out_lines.size() - 1 && end >= m_filtered_out_lines[idx].first - 1;
+  bool need_right_merge = idx + 1 < m_filtered_out_lines.size() && end >= m_filtered_out_lines[idx].first - 1;
 
   if(need_left_merge && need_right_merge){
     m_filtered_out_lines[idx-1].second = m_filtered_out_lines[idx].second;
@@ -93,12 +99,15 @@ void FilteredFileReader::seekRawLine(line_t num){
       goToCheckpoint(ncp);
     }
   } else {
+    // m_checkpoint is always at least size 1
     goToCheckpoint(m_checkpoints.size()-1);
   }
   skipNextRawLines(num-m_curr_line);
 }
 
 size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_t stop_at_line){
+  std::cout << "Searching for next valid line from " << m_curr_line << " up to " << stop_at_line << std::endl;
+  
   if(m_curr_line >= stop_at_line) return 0;
 
   line_t begin_line = m_curr_line;
@@ -180,14 +189,17 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   // TODO Maybe hardcode a different value?
   static constexpr size_t max_lines_stored = m_checkpoint_dist;
 
+  std::cout << "Requested previous line from " << m_curr_line << " curr stores from " << searched_from << " to " << searched_to << ", holds " << valid_lines.size() << " valid lines" << std::endl;
+
   // higher, as in the document, meaning line count lower
   bool searching_from_higher = false;
   if(m_curr_line <= searched_from && valid_lines.size() > 0){
     if(m_curr_line < searched_to){
       // Requested from too high, don't know any valid lines
       searching_from_higher = true;
-    } else if(m_curr_line <= searched_from) {
+    } else {
       for(auto itt = valid_lines.end()-1; itt >= valid_lines.begin(); itt--){
+        std::cout << "Checking if we don't already have valid line for " << m_curr_line << " with pl at " << itt->line_num << std::endl;
         if(m_curr_line > itt->line_num){
           // Place cursor at beginning of line
           m_is.seekg(itt->stt_pos);
@@ -213,19 +225,22 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
 
   char* tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
   ProcessedLine tmp_pl;
+  
   while (1) {
     if(tmpdest == nullptr) {
       tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
     }
-
-    size_t nread = getNextValidLine(tmpdest, tmp_pl, line_stop_search-m_curr_line);
+    std::cout << "Reading from line " << m_curr_line << std::endl;
+    size_t nread = getNextValidLine(tmpdest, tmp_pl, line_stop_search);
     if(nread != 0){
+      std::cout << "Found a valid line(" << pl.line_num << "), adding to findings" << std::endl;
       found_valid = true;
       new_findings.emplace_back(tmp_pl);
       // only referece to the char array is now in the string_view of ProcessedLine
       // MUST NOT FORGET TO FREE AT SOME POINT
       tmpdest = nullptr;
     } else {
+      std::cout << "No more line in block, did i find any: " << found_valid << std::endl;
       // Couldn't read anything, reached end of search space (eol or line_limit)
       if(found_valid){
         // We are searching outside the range that was previously stored ([`searched_from`; `searched_to`])
@@ -252,7 +267,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
             if(tmpdest == nullptr) {
               tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
             }
-            nread = getNextValidLine(tmpdest, tmp_pl, to_line - m_curr_line);
+            nread = getNextValidLine(tmpdest, tmp_pl, to_line);
             if(nread == 0){
               if(searching_from_higher){
                 while(!new_findings.empty()){
@@ -307,6 +322,8 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   if(!found_valid) return 0;
 
   // We know that the value is somewhere is the store now, easiest way to find it, call the function again
+  // OK to set m_curr_line, without seeking as will be reset with ans in the store
+  m_curr_line = begin_line;
   return getPreviousValidLine(dest, pl);
   
 }

@@ -8,13 +8,13 @@
 #include "processed_line.hpp"
 
 class FilteredFileReader {
-private:
+public:
   LineFormat* m_lf;
   LineFilter* m_filter;
   Parser* m_line_parser;
   const size_t m_max_chars_per_line;
   bool m_accept_bad_format = false;
-
+  
   std::ifstream m_is;
   line_t m_curr_line;
   static const line_t m_checkpoint_dist = 1000;
@@ -22,14 +22,15 @@ private:
   
   // Pair of [incl; incl] line numbers which we know are filtered out
   std::vector<std::pair<line_t, line_t>> m_filtered_out_lines;
-
+  
   void goToCheckpoint(line_t cp_id);
   size_t readRawLine(char* s, uint32_t max_chars);
   void skipNextRawLines(line_t n);
   void incrCurrLine();
   int addFilteredOutGroup(line_t stt, line_t end, uint64_t idx);
+  
 
-public:
+// Main public interface
   FilteredFileReader(std::string& fname, LineFormat* lf);
   FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter);
 

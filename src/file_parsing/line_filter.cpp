@@ -52,8 +52,12 @@ bool LineFilter::int_passes(ParsedLine* pl){
     return field_val == val_int;
   case FilterComparison::SMALLER:
     return field_val < val_int;
+  case FilterComparison::SMALLER_EQ:
+    return field_val <= val_int;
   case FilterComparison::GREATER:
     return field_val > val_int;
+  case FilterComparison::GREATER_EQ:
+    return field_val >= val_int;
   default:
     throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type INT");
     return false;
@@ -69,8 +73,12 @@ bool LineFilter::dbl_passes(ParsedLine* pl){
     return field_val == val_dbl;
   case FilterComparison::SMALLER:
     return field_val < val_dbl;
+  case FilterComparison::SMALLER_EQ:
+    return field_val <= val_dbl;
   case FilterComparison::GREATER:
     return field_val > val_dbl;
+  case FilterComparison::GREATER_EQ:
+    return field_val >= val_dbl;
   default:
     throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type DBL");
     return false;
@@ -86,8 +94,12 @@ bool LineFilter::chr_passes(ParsedLine* pl){
     return field_val == val_chr;
   case FilterComparison::SMALLER:
     return field_val < val_chr;
+  case FilterComparison::SMALLER_EQ:
+    return field_val <= val_chr;
   case FilterComparison::GREATER:
     return field_val > val_chr;
+  case FilterComparison::GREATER_EQ:
+    return field_val >= val_chr;
   default:
     throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type CHR");
     return false;
@@ -103,8 +115,12 @@ bool LineFilter::str_passes(ParsedLine* pl){
     return field_val == val_str;
   case FilterComparison::SMALLER:
     return field_val < val_str;
+  case FilterComparison::SMALLER_EQ:
+    return field_val <= val_str;
   case FilterComparison::GREATER:
     return field_val > val_str;
+  case FilterComparison::GREATER_EQ:
+    return field_val >= val_str;
   case FilterComparison::CONTAINS:
     return field_val.find(val_str) != std::string::npos;
   case FilterComparison::BEGINS_WITH:
