@@ -11,15 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ================= BUILDING ======================================
 
-include_directories(line_parsing)
-add_subdirectory(line_parsing)
-include_directories(file_parsing)
-add_subdirectory(file_parsing)
+add_subdirectory(src)
+add_subdirectory(tests)
 
-add_executable(LogParser main.cpp)
 
-add_subdirectory(frontends)
-
-# ================= LINKING ======================================
-
-target_link_libraries(LogParser line_parsing filtering)

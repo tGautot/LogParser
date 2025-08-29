@@ -2,70 +2,19 @@
 #define FILE_PARSER_HPP
 
 
+#include "common.hpp"
+#include "processed_line.hpp"
 #include "parsing_data.hpp"
 #include "line_filter.hpp"
 #include "line_parser.hpp"
+#include "filtered_file_reader.hpp"
 
-#include <algorithm>
-#include <memory>
-#include <string>
-#include <stdint.h>
-#include <fstream>
 
 #define LP_PREV_BLOCK 0
 #define LP_MAIN_BLOCK 1
 #define LP_NEXT_BLOCK 2
 
-typedef uint64_t line_t;
 
-class ProcessedLine {
-public:
-  line_t line_num;
-  // Read only, but we need to be carefull about scoping of original data
-  std::string_view raw_line;
-  bool well_formated;
-  ParsedLine* pl;
-
-  ProcessedLine(line_t line, char* s, size_t n_char, Parser* p);
-  ~ProcessedLine();
-
-  void set_data(line_t line, char* s, size_t n_char, Parser* p);
-
-};
-
-class FilteredFileReader {
-private:
-  LineFormat* m_lf;
-  LineFilter* m_filter;
-  Parser* m_line_parser;
-  const size_t m_max_chars_per_line;
-  bool m_accept_bad_format = false;
-
-  std::ifstream m_is;
-  line_t m_curr_line;
-  static const line_t m_checkpoint_dist = 1000;
-  std::vector<std::streampos> m_checkpoints;
-  
-  // Pair of [incl; incl] line numbers which we know are filtered out
-  std::vector<std::pair<line_t, line_t>> m_filtered_out_lines;
-
-  size_t readRawLine(char* s, uint32_t max_chars);
-  void skipNextRawLines(line_t n);
-  void incrCurrLine();
-  void addFilteredOutGroup(line_t stt, line_t end, uint64_t idx);
-
-public:
-  FilteredFileReader(std::string& fname, LineFormat* lf);
-  FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter);
-
-  size_t getMaxCharsPerLine() { return m_max_chars_per_line; }
-
-  void seekRawLine(line_t line_num);
-  // Needs to be given storage to store the line (needs at most m_max_chars_per_line bytes)
-  // and a ProcessedLine which the function will populate
-  // It will return the number of character read/stored (again, at most m_max_chars_per_line)
-  size_t getNextValidLine(char* dest, ProcessedLine& pl);
-};
 
 class LogParserInterface {
 private:

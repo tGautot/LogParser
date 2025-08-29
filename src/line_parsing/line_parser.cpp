@@ -11,14 +11,12 @@ Parser* Parser::fromLineFormat(LineFormat* lfmt){
     lfield = lfmt->fields[i]; 
     if(lfield->ft == FieldType::INT){
       parse_instruction_t* int_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
-      int_parsing->parse_func = parse_int;
       int_parsing->format_args = nullptr;
       int_parsing->ft = FieldType::INT;
       p->addParsingStep(int_parsing);
     }
     else if(lfield->ft == FieldType::DBL){
       parse_instruction_t* dbl_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
-      dbl_parsing->parse_func = parse_dbl;
       dbl_parsing->format_args = nullptr;
       dbl_parsing->ft = FieldType::DBL;
       p->addParsingStep(dbl_parsing);
@@ -26,7 +24,6 @@ Parser* Parser::fromLineFormat(LineFormat* lfmt){
     else if(lfield->ft == FieldType::CHR){
       LineChrField* cf = static_cast<LineChrField*>(lfield);
       parse_instruction_t* chr_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
-      chr_parsing->parse_func = parse_chr;
       chr_parsing->format_args = (void*) cf->opt;
       chr_parsing->ft = FieldType::CHR;
       p->addParsingStep(chr_parsing);
@@ -34,7 +31,6 @@ Parser* Parser::fromLineFormat(LineFormat* lfmt){
     else if(lfield->ft == FieldType::STR){
       LineStrField* cf = static_cast<LineStrField*>(lfield);
       parse_instruction_t* str_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
-      str_parsing->parse_func = parse_str;
       str_parsing->format_args = (void*) cf->opt;
       str_parsing->ft = FieldType::STR;
       p->addParsingStep(str_parsing);
@@ -59,7 +55,6 @@ void Parser::addParsingStep(parse_instruction_t* inst){
 
 bool Parser::parseLine(std::string_view line, ParsedLine* ret){
   if(format == nullptr) return false;
-
   std::vector<parse_instruction_t*>::iterator iter;
 
   const char* s = line.data();
@@ -70,20 +65,19 @@ bool Parser::parseLine(std::string_view line, ParsedLine* ret){
     int res = 0;
     switch(inst->ft){
     case FieldType::INT:
-      res = inst->parse_func(&s, inst->format_args, (void*) ret->getIntField(nint_parsed++));
+      res = parse_int(&s, ret->getIntField(nint_parsed++));
       break;
     case FieldType::DBL:
-      res = inst->parse_func(&s, inst->format_args, (void*) ret->getDblField(ndbl_parsed++));
+      res = parse_dbl(&s, ret->getDblField(ndbl_parsed++));
       break;
     case FieldType::CHR:
-      res = inst->parse_func(&s, inst->format_args, (void*) ret->getChrField(nchr_parsed++));
+      res = parse_chr(&s, (_ChrFieldOption*) inst->format_args, ret->getChrField(nchr_parsed++));
       break;
     case FieldType::STR:
-      res = inst->parse_func(&s, inst->format_args, (void*) ret->getStrField(nstr_parsed++));
+      res = parse_str(&s, (_StrFieldOption*) inst->format_args, ret->getStrField(nstr_parsed++));
       break;
     default:
       res = -1;
-    
     }
     if(res != 0) return false;
   }
