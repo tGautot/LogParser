@@ -8,9 +8,10 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(tests test.cpp)
-target_link_libraries(tests 
+add_executable(run_tests test.cpp)
+target_link_libraries(run_tests 
   PRIVATE 
+    logging
     Catch2::Catch2WithMain
     line_parsing
     file_parsing)

@@ -1,4 +1,4 @@
-#include "file_parser.hpp"
+#include "log_parser_interface.hpp"
 #include "line_format.hpp"
 #include "parsing_data.hpp"
 
@@ -44,11 +44,11 @@ LogParserInterface::~LogParserInterface(){
 }
 
 void LogParserInterface::setLineFormat(LineFormat* lf){
-  // TODO
+  ffr->setFormat(lf);
 }
 
-void LogParserInterface::setFilter(std::shared_ptr<LineFilter> lf){
-  // TODO
+void LogParserInterface::setFilter(LineFilter* lf){
+  ffr->setFilter(lf);
 }
 
 void LogParserInterface::clearFilter(){
@@ -88,6 +88,15 @@ void LogParserInterface::fillBlock(int which){
 
 void LogParserInterface::setActiveLine(line_t l){
   
+}
+
+void LogParserInterface::deltaActiveLine(int64_t delta){
+  if(delta == 0) return;
+  if(delta < 0){
+
+  } else {
+    
+  }
 }
 
 std::vector<std::string_view> LogParserInterface::getLines(line_t from, line_t count){

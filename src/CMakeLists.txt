@@ -1,5 +1,6 @@
 add_library(log_parser)
 
+add_subdirectory(common)
 add_subdirectory(line_parsing)
 add_subdirectory(file_parsing)
 add_subdirectory(frontends)

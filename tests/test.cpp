@@ -11,6 +11,10 @@
 #include <string>
 #include <string_view>
 
+extern "C"{
+  #include "logging.h"
+}
+
 #define TEST_FOLDER "../../tests/"
 
 LineFormat* getDefaultLineFormat(){
@@ -30,8 +34,17 @@ LineFormat* getDefaultLineFormat(){
   return lf;
 }
 
+void setup(){
+  logger_setup();
+}
+
+void teardown(){
+  logger_teardown();
+}
+
 
 TEST_CASE("Basic line parsing"){
+  setup();
   LineFormat* lf = getDefaultLineFormat();
 
   Parser* parser = Parser::fromLineFormat(lf);
@@ -74,9 +87,11 @@ TEST_CASE("Basic line parsing"){
   }
   delete lf;
   delete parser;
+  teardown();
 }
 
 TEST_CASE("Basic line filtering"){
+  setup();
   LineFormat* lf = getDefaultLineFormat();
 
   Parser* parser = Parser::fromLineFormat(lf);
@@ -121,6 +136,7 @@ TEST_CASE("Basic line filtering"){
   delete lf;
   delete pl;
   delete parser;
+  teardown();
 }
 
 int count_to_info_line(int id){
@@ -146,9 +162,11 @@ int count_to_info_line(int id){
     case 9:
       return 57;
   }
+  return -1;
 }
 
 TEST_CASE("Basic Filtered File Reader"){
+  setup();
   LineFormat* lf = getDefaultLineFormat();
   std::string filename = TEST_FOLDER "data/sample.log"; 
   // Global so that state is updated between tests, stronger testing :), harder debugging :(
@@ -159,7 +177,7 @@ TEST_CASE("Basic Filtered File Reader"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
-    ffr.m_filter = filter;
+    ffr.setFilter(filter);
     
     std::vector<char*> data;
     data.push_back((char*)malloc(ffr.m_max_chars_per_line));
@@ -177,7 +195,7 @@ TEST_CASE("Basic Filtered File Reader"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
-    ffr.m_filter = filter;
+    ffr.setFilter(filter);
     
     std::vector<char*> data;
     data.push_back((char*)malloc(ffr.m_max_chars_per_line));
@@ -198,7 +216,7 @@ TEST_CASE("Basic Filtered File Reader"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
-    ffr.m_filter = filter;
+    ffr.setFilter(filter);
     
     std::vector<char*> data;
     data.push_back((char*)malloc(ffr.m_max_chars_per_line));
@@ -221,7 +239,7 @@ TEST_CASE("Basic Filtered File Reader"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
-    ffr.m_filter = filter;
+    ffr.setFilter(filter);
     
     std::vector<char*> data;
     data.push_back((char*)malloc(ffr.m_max_chars_per_line));
@@ -242,4 +260,5 @@ TEST_CASE("Basic Filtered File Reader"){
     REQUIRE( count == 10);
 
   }
+  teardown();
 }

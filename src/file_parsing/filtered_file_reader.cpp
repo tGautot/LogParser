@@ -1,8 +1,17 @@
 #include "filtered_file_reader.hpp"
+#include "line_format.hpp"
+#include "processed_line.hpp"
 
 #include <iostream>
 #include <vector>
 #include <deque>
+
+extern "C" {
+#include "logging.h"
+}
+
+#define TRASH_SIZE 1024
+static char trash[TRASH_SIZE];
 
 FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf) 
   : m_max_chars_per_line(256), m_lf(lf){
@@ -19,8 +28,26 @@ FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, LineF
   m_filter = filter;
 }
 
-#define TRASH_SIZE 1024
-static char trash[TRASH_SIZE];
+void FilteredFileReader::reset(bool checkpoints_also){
+  m_is.seekg(m_checkpoints[0]);
+  m_curr_line = 0;
+  if(checkpoints_also){
+    m_checkpoints.resize(1);
+  }
+  invalidateCachedResults();
+  m_filtered_out_lines.clear();
+}
+
+void FilteredFileReader::setFormat(LineFormat* format){
+  reset(false);
+  m_lf = format;
+}
+
+void FilteredFileReader::setFilter(LineFilter* filter){
+  reset(false);
+  m_filter = filter;
+}
+
 
 void FilteredFileReader::incrCurrLine(){
   m_curr_line++;
@@ -70,7 +97,6 @@ void FilteredFileReader::skipNextRawLines(line_t n){
 
 int FilteredFileReader::addFilteredOutGroup(line_t stt, line_t end, uint64_t idx){
   // Want to just insert but might need to merge left/right/both
-  std::cout << "addFilteredOutGroup " << stt << " " << end << " " << idx << std::endl;
   bool need_left_merge = idx > 0 && stt <= m_filtered_out_lines[idx-1].second + 1;
   bool need_right_merge = idx + 1 < m_filtered_out_lines.size() && end >= m_filtered_out_lines[idx].first - 1;
 
@@ -106,8 +132,8 @@ void FilteredFileReader::seekRawLine(line_t num){
 }
 
 size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_t stop_at_line){
-  std::cout << "Searching for next valid line from " << m_curr_line << " up to " << stop_at_line << std::endl;
-  
+  LOG(5, "Searching for next valid line from %lu up to %lu\n",  m_curr_line, stop_at_line);
+
   if(m_curr_line >= stop_at_line) return 0;
 
   line_t begin_line = m_curr_line;
@@ -171,26 +197,22 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
   return 0;
 }
 
+
+
+
 size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   // Since we can't really read lines backwards, lets optimize a bit
   // We go back (one checkpoint at a time) and read all the lines still unread until curr_line
   // We store all the valid lines we find (usually one previous call is followed by another)
   // The following static variables are here for this
   
-  // Lowest line for which we know the previous valid are the `valid_lines`
-  static line_t searched_from = 0;
-  // Highest line up until which we have searched for valid lines
-  static line_t searched_to = 0;
-  // All the lines we know are valid above `searched_from` lowest index, are lines with lower line_t count
-  // The ProcessedLines stored statically here all contain a string_view which points to dynamically allocated data
-  // This data must be freed when the PL is discarded
-  // To avoid complex memory management, when one result is genven back to the caller, it is deep copied;
-  static std::deque<ProcessedLine> valid_lines;
   // TODO Maybe hardcode a different value?
   static constexpr size_t max_lines_stored = m_checkpoint_dist;
 
-  std::cout << "Requested previous line from " << m_curr_line << " curr stores from " << searched_from << " to " << searched_to << ", holds " << valid_lines.size() << " valid lines" << std::endl;
-
+  line_t& searched_from = m_cached_previous.searched_from;
+  line_t& searched_to = m_cached_previous.searched_to;
+  std::deque<ProcessedLine>& valid_lines = m_cached_previous.valid_lines;
+  
   // higher, as in the document, meaning line count lower
   bool searching_from_higher = false;
   if(m_curr_line <= searched_from && valid_lines.size() > 0){
@@ -199,7 +221,6 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
       searching_from_higher = true;
     } else {
       for(auto itt = valid_lines.end()-1; itt >= valid_lines.begin(); itt--){
-        std::cout << "Checking if we don't already have valid line for " << m_curr_line << " with pl at " << itt->line_num << std::endl;
         if(m_curr_line > itt->line_num){
           // Place cursor at beginning of line
           m_is.seekg(itt->stt_pos);
@@ -230,17 +251,14 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
     if(tmpdest == nullptr) {
       tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
     }
-    std::cout << "Reading from line " << m_curr_line << std::endl;
     size_t nread = getNextValidLine(tmpdest, tmp_pl, line_stop_search);
     if(nread != 0){
-      std::cout << "Found a valid line(" << pl.line_num << "), adding to findings" << std::endl;
       found_valid = true;
       new_findings.emplace_back(tmp_pl);
       // only referece to the char array is now in the string_view of ProcessedLine
       // MUST NOT FORGET TO FREE AT SOME POINT
       tmpdest = nullptr;
     } else {
-      std::cout << "No more line in block, did i find any: " << found_valid << std::endl;
       // Couldn't read anything, reached end of search space (eol or line_limit)
       if(found_valid){
         // We are searching outside the range that was previously stored ([`searched_from`; `searched_to`])
@@ -326,4 +344,17 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   m_curr_line = begin_line;
   return getPreviousValidLine(dest, pl);
   
+}
+
+
+void FilteredFileReader::invalidateCachedResults(){
+  m_cached_previous.searched_from = m_cached_previous.searched_to = 0;
+  std::deque<ProcessedLine>& valid_lines = m_cached_previous.valid_lines;
+  while(!valid_lines.empty()){
+    while(!valid_lines.empty()){
+      // Free all our tmpdests
+      free((char*) valid_lines.back().raw_line.data());
+      valid_lines.pop_back();
+    }
+  }
 }

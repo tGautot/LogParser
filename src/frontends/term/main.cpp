@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "file_parser.hpp"
+#include "log_parser_interface.hpp"
 
 
 #define CTRL_CHR(c) (c & 0x1f)

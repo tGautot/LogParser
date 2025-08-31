@@ -7,10 +7,12 @@
 #include "line_filter.hpp"
 #include "processed_line.hpp"
 
+#include <deque>
+
 class FilteredFileReader {
-public:
   LineFormat* m_lf;
   LineFilter* m_filter;
+public:
   Parser* m_line_parser;
   const size_t m_max_chars_per_line;
   bool m_accept_bad_format = false;
@@ -34,6 +36,10 @@ public:
   FilteredFileReader(std::string& fname, LineFormat* lf);
   FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter);
 
+  void reset(bool checkpoints_also = false);
+  void setFormat(LineFormat* format);
+  void setFilter(LineFilter* filter);
+
   size_t getMaxCharsPerLine() { return m_max_chars_per_line; }
 
   void seekRawLine(line_t line_num);
@@ -42,8 +48,23 @@ public:
   // It will return the number of character read/stored (again, at most m_max_chars_per_line)
   // If the function returns 0, there is no garentee as to where the input stream head might be
   size_t getNextValidLine(char* dest, ProcessedLine& pl, line_t stop_at_line = LINE_T_MAX);
+ 
+ 
+  struct { 
+    // Lowest line for which we know the previous valid are the `valid_lines`
+    line_t searched_from = 0;
+    // Highest line up until which we have searched for valid lines
+    line_t searched_to = 0;
+    // All the lines we know are valid above `searched_from` lowest index, are lines with lower line_t count
+    // The ProcessedLines stored statically here all contain a string_view which points to dynamically allocated data
+    // This data must be freed when the PL is discarded
+    // To avoid complex memory management, when one result is genven back to the caller, it is deep copied;
+    std::deque<ProcessedLine> valid_lines;
+  } m_cached_previous;
   size_t getPreviousValidLine(char* dest, ProcessedLine& pl);
   bool eof(){ return m_is.eof(); }
+
+  void invalidateCachedResults();
 };
 
 #endif

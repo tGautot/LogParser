@@ -59,10 +59,11 @@ public:
   ~LogParserInterface();
 
   void setLineFormat(LineFormat* lf);
-  void setFilter(std::shared_ptr<LineFilter> lf);
+  void setFilter(LineFilter* lf);
   void clearFilter();
 
   void setActiveLine(line_t line);
+  void deltaActiveLine(int64_t delta);
 
   std::vector<std::string_view> getFromFirstLine(size_t count);
   std::vector<std::string_view> getLines(line_t from, line_t count);
