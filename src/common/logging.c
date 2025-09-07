@@ -45,7 +45,7 @@ void logger_set_minlvl(uint8_t lvl){
 }
 
 
-void _log_intrnl(uint8_t lvl, char* strfile, uint32_t line, char* fmt, ...){
+void _log_intrnl(uint8_t lvl, const char* strfile, uint32_t line, const char* fmt, ...){
   if(lvl < config.minlvl) return;
   if(lvl > 9) lvl = 9;
 
@@ -59,7 +59,7 @@ void _log_intrnl(uint8_t lvl, char* strfile, uint32_t line, char* fmt, ...){
   strftime(timstr,sizeof(timstr),"%d-%m-%Y %H:%M:%S",timeinfo);
   
   int i = 0;
-  char* file_stt = strfile;
+  const char* file_stt = strfile;
   while(strfile[i++] != 0){
     if(strfile[i-1] == FILE_SEP){
       file_stt = strfile + i;
@@ -76,7 +76,7 @@ void _log_intrnl(uint8_t lvl, char* strfile, uint32_t line, char* fmt, ...){
   free(final_fmt);
 }
 
-void _log_raw(uint8_t lvl, char* fmt, ... ){
+void _log_raw(uint8_t lvl, const char* fmt, ... ){
   va_list lst;
   va_start(lst, fmt);
   

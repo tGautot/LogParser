@@ -6,9 +6,7 @@
 #include <vector>
 #include <deque>
 
-extern "C" {
-#include "logging.h"
-}
+#include "logging.hpp"
 
 #define TRASH_SIZE 1024
 static char trash[TRASH_SIZE];
@@ -132,7 +130,8 @@ void FilteredFileReader::seekRawLine(line_t num){
 }
 
 size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_t stop_at_line){
-  LOG(5, "Searching for next valid line from %lu up to %lu\n",  m_curr_line, stop_at_line);
+  LOG_LOGENTRY(5, "FilteredFileReader::getNextValidLine");
+  LOG_FCT(5, "Searching for next valid line from %lu up to %lu\n",  m_curr_line, stop_at_line);
 
   if(m_curr_line >= stop_at_line) return 0;
 
@@ -194,6 +193,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
       fo_begin = m_curr_line;
     }
   }
+  LOG_EXIT();
   return 0;
 }
 
