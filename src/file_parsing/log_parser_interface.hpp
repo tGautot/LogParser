@@ -15,43 +15,44 @@
 #define LP_NEXT_BLOCK 2
 
 
+#define BLKFLG_NONE 0
+#define BLKFLG_IS_FIRST 1
+#define BLKFLG_IS_LAST 2
+
+
+struct LineBlock {
+  std::vector<char> raw_lines;
+  std::vector<ProcessedLine> lines;
+  // Line nu,ber are global (i.e. number in the file)
+  line_t first_line_glbl_id, last_line_glbl_id;
+  
+  // Local line number, i.e. nth filtered line
+  line_t first_line_local_id;
+  uint8_t flags;
+
+  LineBlock() = default;
+  LineBlock(LineBlock&& tomove){
+    flags = tomove.flags;
+    first_line_glbl_id = tomove.first_line_glbl_id;
+    last_line_glbl_id = tomove.last_line_glbl_id;
+    first_line_local_id = tomove.first_line_local_id;
+    raw_lines = std::move(tomove.raw_lines);
+    lines = std::move(tomove.lines);
+  }
+
+  size_t size(){
+    return lines.size();
+  }
+};
+
 
 class LogParserInterface {
 private:
   FilteredFileReader* ffr;
+  line_t active_line, known_first_line;
+  uint32_t block_size;
+  LineBlock block;
 
-  //std::vector<ProcessedLine*> pl_pool;
-  
-
-  line_t active_line;
-
-  std::vector<ProcessedLine*>* tmp_line_block;
-  std::vector<ProcessedLine*>* line_blocks[3];
-
-  std::vector<char> raw_blocks[3];
-
-  
-  // Number of lines per block
-  int block_size;
-  
-  // Currently only supports AND between filters
-  std::vector<std::shared_ptr<LineFilter>> filters;
-  
-  bool filters_enabled;
-  
-  int curr_main_block_id;
-  
-  std::vector<ProcessedLine*>* getPrevBlock() { return line_blocks[LP_PREV_BLOCK]; }
-  std::vector<ProcessedLine*>* getMainBlock() { return line_blocks[LP_MAIN_BLOCK]; }
-  std::vector<ProcessedLine*>* getNextBlock() { return line_blocks[LP_NEXT_BLOCK]; }
-
-  void slideBlocksForward(int one_or_two);
-  void slideBlocksBackward(int one_or_two);
-
-  void fillBlock(int which);
-  void fillPrevBlock(){ fillBlock(LP_PREV_BLOCK); }
-  void fillMainBlock(){ fillBlock(LP_MAIN_BLOCK); }
-  void fillNextBlock(){ fillBlock(LP_NEXT_BLOCK); }
 
 public:
 
@@ -65,9 +66,10 @@ public:
   void setActiveLine(line_t line);
   void deltaActiveLine(int64_t delta);
 
-  std::vector<std::string_view> getFromFirstLine(size_t count);
-  std::vector<std::string_view> getLines(line_t from, line_t count);
-  std::vector<std::string_view> getFromLastLine(size_t count);
+  //std::vector<std::string_view> getFromFirstLine(size_t count);
+  std::string_view getLine(line_t local_line_id);
+  //std::vector<std::string_view> getLines(line_t from, line_t count);
+  //std::vector<std::string_view> getFromLastLine(size_t count);
 
   line_t findNextOccurence(std::string match, line_t from, bool forward = true);
   
