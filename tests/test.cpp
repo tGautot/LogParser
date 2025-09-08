@@ -5,6 +5,7 @@
 #include "line_parser.hpp"
 #include "line_filter.hpp"
 #include "processed_line.hpp"
+#include "log_parser_interface.hpp"
 
 #include <fstream>
 #include <iosfwd>
@@ -115,6 +116,7 @@ TEST_CASE("Basic line filtering"){
       }
       i++;
     }
+    delete filter;
   }
 
   SECTION("Filter on string"){
@@ -128,6 +130,7 @@ TEST_CASE("Basic line filtering"){
       }
     }
     REQUIRE( matches == 10 );
+    delete filter;
   }
 
   for(int i = 0;i < lf->fields.size(); i++){
@@ -179,16 +182,16 @@ TEST_CASE("Basic Filtered File Reader"){
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
-    std::vector<char*> data;
-    data.push_back((char*)malloc(ffr.m_max_chars_per_line));
+    char* data =(char*)malloc(ffr.m_max_chars_per_line);
     int count = 0;
-    while(ffr.getNextValidLine(data.back(), pl) != 0){
+    while(ffr.getNextValidLine(data, pl) != 0){
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count++;
 
     }
     REQUIRE( count == 10);
-
+    free(data);
+    delete filter;
   }
 
   SECTION("Filter on string, backwards"){
@@ -197,19 +200,19 @@ TEST_CASE("Basic Filtered File Reader"){
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
-    std::vector<char*> data;
-    data.push_back((char*)malloc(ffr.m_max_chars_per_line));
+    char* data = (char*)malloc(ffr.m_max_chars_per_line);
     
     ffr.skipNextRawLines(1000); // Go to eof
     
     int count = 9;
-    while(ffr.getPreviousValidLine(data.back(), pl) != 0){
+    while(ffr.getPreviousValidLine(data, pl) != 0){
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count--;
 
     }
     REQUIRE( count == -1);
-
+    free(data);
+    delete filter;
   }
 
   SECTION("Filter on string, forward then backwards"){
@@ -218,21 +221,21 @@ TEST_CASE("Basic Filtered File Reader"){
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
-    std::vector<char*> data;
-    data.push_back((char*)malloc(ffr.m_max_chars_per_line));
+    char* data = (char*)malloc(ffr.m_max_chars_per_line);
     ffr.seekRawLine(0);
     int count = 0;
-    while(ffr.getNextValidLine(data.back(), pl) != 0){
+    while(ffr.getNextValidLine(data, pl) != 0){
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count++;
     }
     REQUIRE( count == 10);
-    while(ffr.getPreviousValidLine(data.back(), pl) != 0){
+    while(ffr.getPreviousValidLine(data, pl) != 0){
       count--;
       REQUIRE ( pl.line_num == count_to_info_line(count));
     }
     REQUIRE( count == 0 );
-
+    free(data);
+    delete filter;
   }
 
   SECTION("Filter on string, backwards then forward"){
@@ -241,24 +244,44 @@ TEST_CASE("Basic Filtered File Reader"){
     LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
-    std::vector<char*> data;
-    data.push_back((char*)malloc(ffr.m_max_chars_per_line));
+    char* data = (char*)malloc(ffr.m_max_chars_per_line);
     
     ffr.skipNextRawLines(1000); // Go to eof
     
     int count = 9;
-    while(ffr.getPreviousValidLine(data.back(), pl) != 0){
+    while(ffr.getPreviousValidLine(data, pl) != 0){
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count--;
     }
     count++;
     REQUIRE( count == 0);
-    while(ffr.getNextValidLine(data.back(), pl) != 0){
+    while(ffr.getNextValidLine(data, pl) != 0){
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count++;
     }
     REQUIRE( count == 10);
-
+    free(data);
+    delete filter;
   }
+  for(int i = 0;i < lf->fields.size(); i++){
+    delete lf->fields[i];
+  }
+  delete lf;
+  teardown();
+}
+
+TEST_CASE("Testing interface"){
+  setup();
+  LineFormat* lf = getDefaultLineFormat();
+  std::string filename = TEST_FOLDER "data/sample.log"; 
+  LogParserInterface lpi(filename, lf, nullptr);
+  for(int i = 0; i < 20; i++){
+    std::string_view sv = lpi.getLine(i);
+    printf("Line %d: %.*s\n", i, sv.size(), sv.data());
+  }
+  for(int i = 0;i < lf->fields.size(); i++){
+    delete lf->fields[i];
+  }
+  delete lf;
   teardown();
 }

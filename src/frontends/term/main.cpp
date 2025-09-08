@@ -8,6 +8,7 @@
 #include <string>
 
 #include "log_parser_interface.hpp"
+#include "logging.hpp"
 
 
 #define CTRL_CHR(c) (c & 0x1f)
@@ -27,6 +28,8 @@ struct terminal_config {
 
 struct terminal_config cfg;
 
+LogParserInterface* lpi;
+
 void die(const char* s){
   CLEAR_SCREEN();
   CURSOR_TL();
@@ -35,6 +38,8 @@ void die(const char* s){
 }
 
 void rollbackTerm(){
+  // TODO move this somewhere else
+  logger_teardown();
   if(write(STDOUT_FILENO, ESC_CMD "?1049l", 8) != 8) die("write rollback alternate buf");
   if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &cfg.orig_term) == -1) die("tcsetattr");
 }
@@ -175,6 +180,8 @@ void drawRows(std::string& todraw){
   todraw += ESC_CMD "K";
   for(int i = 0; i < cfg.nrows-1; i++){
     todraw += "~";
+    std::string_view fetched_line = lpi->getLine(i);
+    todraw += fetched_line;
     todraw += "\r\n";
   } 
   
@@ -214,13 +221,39 @@ int getWindowSize(int *rows, int *cols) {
   }
 }
 
+LineFormat* getDefaultLineFormat(){
+  LineFormat* lf = new LineFormat();
+  lf->addField(new LineIntField("Date"));
+  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new LineIntField("Time"));
+  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new LineStrField("Level", StrFieldStopType::DELIM, ' ', 0));
+  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new LineChrField("", ':', false));
+  lf->addField(new LineChrField("", '.', true));
+  lf->addField(new LineStrField("Source", StrFieldStopType::DELIM, ':', 0));
+  lf->addField(new LineChrField("", ':', false));
+  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
+  return lf;
+}
 
-int main(){
+int main(int argc, char** argv){
   setupTerm();
+  logger_setup();
+  logger_set_file("/dev/null");
   CLEAR_SCREEN();
+  if(argc != 2){
+    printf("Usage ./lp_term <file_path>\n");
+    return 1;
+  }
   char c;
   char buf[32];
   std::string todraw;
+  lpi = new LogParserInterface(argv[1], getDefaultLineFormat(), nullptr);
+  std::cout << "First line is " << lpi->getLine(0) << std::endl;
+  handleInput();
+  
   while (1) {
     if(getWindowSize(&cfg.nrows, &cfg.ncols) == -1) die("getWindowSize");
     //todraw += ESC_CMD "2J";

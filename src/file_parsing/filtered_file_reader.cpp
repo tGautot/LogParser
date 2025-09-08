@@ -26,6 +26,14 @@ FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, LineF
   m_filter = filter;
 }
 
+FilteredFileReader::~FilteredFileReader(){
+  while(!m_cached_previous.valid_lines.empty()){
+    free((void*) m_cached_previous.valid_lines.back().raw_line.data());
+    m_cached_previous.valid_lines.pop_back();
+  }
+  delete m_line_parser;
+}
+
 void FilteredFileReader::reset(bool checkpoints_also){
   m_is.seekg(m_checkpoints[0]);
   m_curr_line = 0;
@@ -70,8 +78,9 @@ void FilteredFileReader::goToCheckpoint(line_t cp_id){
 size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
   m_is.getline(s, max_chars);
   // if line is "aaa\n" then "aaa\0" will be stored in s, but gcount still return 4
+  s[max_chars-1] = 0;
   size_t nread = m_is.gcount();
-  while(m_is.fail()){
+  while(!m_is.eof() && m_is.fail()){
     m_is.getline(trash, TRASH_SIZE);
   }
   incrCurrLine();
@@ -95,6 +104,8 @@ void FilteredFileReader::skipNextRawLines(line_t n){
 
 int FilteredFileReader::addFilteredOutGroup(line_t stt, line_t end, uint64_t idx){
   // Want to just insert but might need to merge left/right/both
+  LOG_ENTRY("FilteredFileReader::addFilteredOutGroup");
+  LOG_FCT(5, "Adding filtered out group [%llu, %llu] at id %llu\n", stt, end, idx);
   bool need_left_merge = idx > 0 && stt <= m_filtered_out_lines[idx-1].second + 1;
   bool need_right_merge = idx + 1 < m_filtered_out_lines.size() && end >= m_filtered_out_lines[idx].first - 1;
 
@@ -133,7 +144,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
   LOG_LOGENTRY(5, "FilteredFileReader::getNextValidLine");
   LOG_FCT(5, "Searching for next valid line from %lu up to %lu\n",  m_curr_line, stop_at_line);
 
-  if(m_curr_line >= stop_at_line) return 0;
+  if(m_curr_line >= stop_at_line) {LOG_EXIT(); return 0;}
 
   line_t begin_line = m_curr_line;
   // TODO Binary search
@@ -151,6 +162,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
       // Just skip ahead
       if(m_filtered_out_lines[i].second >= stop_at_line){
         // Don't move cursor?
+        LOG_EXIT();
         return 0;
       }
       seekRawLine(m_filtered_out_lines[i].second + 1);
@@ -167,8 +179,10 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
   std::streampos line_stt;
   while(!m_is.eof() && (m_curr_line < stop_at_line)){
     line_stt = m_is.tellg();
-    fo_end = m_curr_line -1;
+    fo_end = (m_curr_line == 0) ? 0 : m_curr_line -1;
+    LOG_FCT(5, "Looking at line number %llu filtered out start and end: %llu, %llu\n", m_curr_line, fo_begin, fo_end);
     size_t nread = readRawLine(dest, m_max_chars_per_line);
+    LOG_FCT(5, "Read %llu chars, line is well formated: %d, line content is %s\n", nread, pl.well_formated, dest);
     pl.set_data(m_curr_line-1, dest, nread, m_line_parser, line_stt);
     if( (m_accept_bad_format && !pl.well_formated) 
         || m_filter == nullptr || m_filter->passes(pl.pl.get())){
@@ -176,6 +190,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
       if(fo_end > fo_begin){ // Since intervals are [incl; incl], could add new block on ">=", but let's not care about single lines
         addFilteredOutGroup(fo_begin, fo_end, i);
       }
+      LOG_EXIT();
       return nread;
     }
     // Line is NOT valid here
@@ -184,6 +199,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
       
       if(m_filtered_out_lines[i].second >= stop_at_line){
         // Don't move cursor?
+        LOG_EXIT();
         return 0;
       }
 
@@ -273,10 +289,12 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
         line_t from_line, to_line;
         if(searching_from_higher){
           dist_to_old_results = searched_to - begin_line;
-          from_line = begin_line; to_line = searched_to;
+          from_line = begin_line; 
+          to_line = searched_to;
         } else {
           dist_to_old_results = highest_line_searched - searched_from;
-          from_line = searched_from; to_line = highest_line_searched;
+          from_line = searched_from; 
+          to_line = highest_line_searched;
         }
         if(dist_to_old_results < 10*m_checkpoint_dist){
           // Try to keep old results
@@ -303,12 +321,14 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
               break;
             } else {
               if(searching_from_higher){
-                new_findings.push_back(tmp_pl);
+                new_findings.emplace_back(tmp_pl);
               } else {
-                new_findings.push_front(tmp_pl);
+                new_findings.emplace_front(tmp_pl);
               }
+              tmpdest = nullptr;
             }
           }
+        
         } else {
           // The two search spaces are too far, discard old results
           while(!valid_lines.empty()){
@@ -316,15 +336,15 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
             free((char*) valid_lines.back().raw_line.data());
             valid_lines.pop_back();
           }
-          valid_lines = new_findings;
+          valid_lines = std::move(new_findings);
           searched_from = begin_line;
           searched_to = highest_line_searched;
 
         }
-        
+        free(tmpdest);
         break;
       } 
-
+      free(tmpdest);
       // Search one checkpoint higher if possible
       if(pcp == 0){
         // Already searched up to top, found no match...

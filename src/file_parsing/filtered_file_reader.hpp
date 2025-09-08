@@ -15,7 +15,7 @@ class FilteredFileReader {
 public:
   Parser* m_line_parser;
   const size_t m_max_chars_per_line;
-  bool m_accept_bad_format = false;
+  bool m_accept_bad_format = true;
   
   std::ifstream m_is;
   line_t m_curr_line;
@@ -35,6 +35,8 @@ public:
 // Main public interface
   FilteredFileReader(std::string& fname, LineFormat* lf);
   FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter);
+
+  ~FilteredFileReader();
 
   void reset(bool checkpoints_also = false);
   void setFormat(LineFormat* format);
