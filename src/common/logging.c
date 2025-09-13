@@ -46,8 +46,8 @@ void logger_set_minlvl(uint8_t lvl){
 
 
 void _log_intrnl(uint8_t lvl, const char* strfile, uint32_t line, const char* fmt, ...){
-  if(lvl < config.minlvl) return;
   if(lvl > 9) lvl = 9;
+  if(lvl > config.minlvl) return;
 
   time_t rawtime;
   struct tm * timeinfo;
@@ -72,7 +72,7 @@ void _log_intrnl(uint8_t lvl, const char* strfile, uint32_t line, const char* fm
   va_start(lst, fmt);
   vfprintf(config.fp, final_fmt, lst);
   va_end(lst);
-  
+  fflush(config.fp);
   free(final_fmt);
 }
 

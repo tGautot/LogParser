@@ -19,7 +19,7 @@ public:
   
   std::ifstream m_is;
   line_t m_curr_line;
-  static const line_t m_checkpoint_dist = 1000;
+  const line_t m_checkpoint_dist;
   std::vector<std::streampos> m_checkpoints;
   
   // Pair of [incl; incl] line numbers which we know are filtered out
@@ -33,8 +33,8 @@ public:
   
 
 // Main public interface
-  FilteredFileReader(std::string& fname, LineFormat* lf);
-  FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter);
+  FilteredFileReader(std::string& fname, LineFormat* lf, line_t checkpoint_dist = 1000);
+  FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter, line_t checkpoint_dist = 1000);
 
   ~FilteredFileReader();
 

@@ -180,7 +180,7 @@ void drawRows(std::string& todraw){
   todraw += ESC_CMD "K";
   for(int i = 0; i < cfg.nrows-1; i++){
     todraw += "~";
-    std::string_view fetched_line = lpi->getLine(i);
+    std::string_view fetched_line = lpi->getLine(i).line;
     todraw += fetched_line;
     todraw += "\r\n";
   } 
@@ -251,7 +251,7 @@ int main(int argc, char** argv){
   char buf[32];
   std::string todraw;
   lpi = new LogParserInterface(argv[1], getDefaultLineFormat(), nullptr);
-  std::cout << "First line is " << lpi->getLine(0) << std::endl;
+  std::cout << "First line is " << lpi->getLine(0).line << std::endl;
   handleInput();
   
   while (1) {

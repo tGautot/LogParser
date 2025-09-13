@@ -6,13 +6,16 @@
 #include <vector>
 #include <deque>
 
+extern "C"{
+  #include "logging.h"
+}
 #include "logging.hpp"
 
 #define TRASH_SIZE 1024
 static char trash[TRASH_SIZE];
 
-FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf) 
-  : m_max_chars_per_line(256), m_lf(lf){
+FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, line_t checkpoint_dist) 
+  : m_max_chars_per_line(256), m_lf(lf), m_checkpoint_dist(checkpoint_dist){
 
   m_is = std::ifstream(fname, std::ios::in);
   m_line_parser = Parser::fromLineFormat(m_lf);
@@ -21,8 +24,8 @@ FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf)
   m_curr_line = 0;
 }
 
-FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter)
-  : FilteredFileReader(fname, lf){
+FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter, line_t checkpoint_dist)
+  : FilteredFileReader(fname, lf, checkpoint_dist){
   m_filter = filter;
 }
 
@@ -205,7 +208,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
 
       i = 1 + addFilteredOutGroup(fo_begin, fo_end, i);
       lb = i == m_filtered_out_lines.size();
-      seekRawLine(m_filtered_out_lines[i].second + 1);
+      seekRawLine(m_filtered_out_lines[i-1].second + 1);
       fo_begin = m_curr_line;
     }
   }
@@ -222,8 +225,9 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   // We store all the valid lines we find (usually one previous call is followed by another)
   // The following static variables are here for this
   
-  // TODO Maybe hardcode a different value?
-  static constexpr size_t max_lines_stored = m_checkpoint_dist;
+  // Needs to at least be greater than m_checkpoint_dist to simplify some logic
+  LOG_LOGENTRY(1, "FilteredFileReader::getPreviousValidLine");
+  const size_t max_lines_stored = 3*m_checkpoint_dist;
 
   line_t& searched_from = m_cached_previous.searched_from;
   line_t& searched_to = m_cached_previous.searched_to;
@@ -246,6 +250,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
 
           // Copy data
           pl = ProcessedLine(*itt, dest, m_max_chars_per_line);
+          LOG_EXIT();
           return pl.raw_line.size();
         }
       }
@@ -261,11 +266,13 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   std::deque<ProcessedLine> new_findings;
 
   char* tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
+  LOG(1, "Malloced first raw line at %p\n", tmpdest);
   ProcessedLine tmp_pl;
   
   while (1) {
     if(tmpdest == nullptr) {
       tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
+      LOG(1, "Malloced raw line at %p\n", tmpdest);
     }
     size_t nread = getNextValidLine(tmpdest, tmp_pl, line_stop_search);
     if(nread != 0){
@@ -296,28 +303,16 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
           from_line = searched_from; 
           to_line = highest_line_searched;
         }
-        if(dist_to_old_results < 10*m_checkpoint_dist){
+        if(dist_to_old_results < 3*m_checkpoint_dist){
           // Try to keep old results
           seekRawLine(from_line);
           while(1){
             if(tmpdest == nullptr) {
               tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
+              LOG(1, "Malloced raw line at %p\n", tmpdest);
             }
             nread = getNextValidLine(tmpdest, tmp_pl, to_line);
             if(nread == 0){
-              if(searching_from_higher){
-                while(!new_findings.empty()){
-                  valid_lines.emplace_front(new_findings.back());
-                  new_findings.pop_back();
-                }
-                searched_to = highest_line_searched;
-              } else {
-                while(!new_findings.empty()){
-                  valid_lines.emplace_back(new_findings.front());
-                  new_findings.pop_front();
-                }
-                searched_from = begin_line;
-              }
               break;
             } else {
               if(searching_from_higher){
@@ -328,26 +323,54 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
               tmpdest = nullptr;
             }
           }
+          if(searching_from_higher){
+            while(!new_findings.empty()){
+              valid_lines.emplace_front(new_findings.back());
+              new_findings.pop_back();
+            }
+            searched_to = highest_line_searched;
+          } else {
+            while(!new_findings.empty()){
+              valid_lines.emplace_back(new_findings.front());
+              new_findings.pop_front();
+            }
+            searched_from = begin_line;
+          }
         
         } else {
           // The two search spaces are too far, discard old results
+          LOG(1, "-----------------------------------------------\n");
           while(!valid_lines.empty()){
             // Free all our tmpdests
+            for(int i = 0; i < valid_lines.size(); i++){
+              LOG(1, "valid line id %d points to %p\n", i, valid_lines[i].raw_line.data());
+            }
+            LOG(1, "Freeing valid line %p\n", valid_lines.back().raw_line.data());
             free((char*) valid_lines.back().raw_line.data());
             valid_lines.pop_back();
           }
+          // we are sure that new findings' size < max_vlaid_lines so dont do anything
           valid_lines = std::move(new_findings);
           searched_from = begin_line;
           searched_to = highest_line_searched;
 
         }
-        free(tmpdest);
+        LOG(1, "Freeing tmpdest %p after found valid\n", tmpdest);
+        if(tmpdest == nullptr){
+          free(tmpdest);
+          tmpdest = nullptr;
+        }
         break;
       } 
-      free(tmpdest);
+      LOG(1, "Freeing tmpdest %p after NOT found valid\n", tmpdest);
+      if(tmpdest == nullptr){
+        free(tmpdest);
+        tmpdest = nullptr;
+      }
       // Search one checkpoint higher if possible
       if(pcp == 0){
         // Already searched up to top, found no match...
+        LOG_EXIT();
         return 0;
       }
       line_stop_search = pcp * m_checkpoint_dist;

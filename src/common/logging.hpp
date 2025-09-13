@@ -8,6 +8,7 @@ extern "C"{
 }
 #define LOG_ENTRY(name) LoggerFunctionSentry logger_function_sentry(255, __LINE__, name)
 #define LOG_LOGENTRY(lvl, name) LoggerFunctionSentry logger_function_sentry(lvl, __LINE__, name); _log_intrnl(lvl, name, __LINE__, "<ENTRY>\n")
+#define LOG_SIMPLE(lvl, fmt, ...) LOG(lvl, fmt, ##__VA_ARGS__)
 #define LOG_FCT(lvl, fmt, ...) _log_intrnl(lvl, logger_function_sentry.s.data(), __LINE__, fmt, ##__VA_ARGS__)
 #define LOG_EXIT() logger_function_sentry.log_exit(__LINE__)
 

@@ -7,6 +7,7 @@
 #include "processed_line.hpp"
 #include "log_parser_interface.hpp"
 
+#include <cstring>
 #include <fstream>
 #include <iosfwd>
 #include <string>
@@ -35,8 +36,39 @@ LineFormat* getDefaultLineFormat(){
   return lf;
 }
 
+std::string_view info_lines[10] = {
+  "0322 085338 INFO   :......rsvp_flow_stateMachine: state RESVED, event T1OUT",
+  "0322 085352 INFO   :.......rsvp_parse_objects: obj RSVP_HOP hop=9.67.116.99, lih=0",
+  "0322 085352 INFO   :.......rsvp_flow_stateMachine: state RESVED, event RESV",
+  "0322 085353 INFO   :......router_forward_getOI: Ioctl to query route entry successful",
+  "0322 085353 INFO   :......rsvp_flow_stateMachine: state RESVED, event T1OUT",
+  "0322 085409 INFO   :......router_forward_getOI: Ioctl to query route entry successful",
+  "0322 085409 INFO   :......rsvp_flow_stateMachine: state RESVED, event T1OUT",
+  "0322 085422 INFO   :.......rsvp_parse_objects: obj RSVP_HOP hop=9.67.116.99, lih=0",
+  "0322 085422 INFO   :.......rsvp_flow_stateMachine: state RESVED, event RESV",
+  "0322 085424 INFO   :......router_forward_getOI: Ioctl to query route entry successful"
+};
+
+std::string_view info_and_bf_lines[14] = {
+  "0322 085338 INFO   :......rsvp_flow_stateMachine: state RESVED, event T1OUT",
+  "0322 085352 INFO   :.......rsvp_parse_objects: obj RSVP_HOP hop=9.67.116.99, lih=0",
+  "0322 085352 INFO   :.......rsvp_flow_stateMachine: state RESVED, event RESV",
+  "0322 085353 INFO   :......router_forward_getOI: Ioctl to query route entry successful",
+  "0x00 0x01 0x02 0x03 ..Da..Ba",
+  "0x04 0x05 0x06 0x07 ..Da..Ba",
+  "0x08 0x09 0x0A 0x0B ..Da..Ba",
+  "0x0C 0x0D 0x0E 0x0F ..Da..Ba",
+  "0322 085353 INFO   :......rsvp_flow_stateMachine: state RESVED, event T1OUT",
+  "0322 085409 INFO   :......router_forward_getOI: Ioctl to query route entry successful",
+  "0322 085409 INFO   :......rsvp_flow_stateMachine: state RESVED, event T1OUT",
+  "0322 085422 INFO   :.......rsvp_parse_objects: obj RSVP_HOP hop=9.67.116.99, lih=0",
+  "0322 085422 INFO   :.......rsvp_flow_stateMachine: state RESVED, event RESV",
+  "0322 085424 INFO   :......router_forward_getOI: Ioctl to query route entry successful"
+};
+
 void setup(){
   logger_setup();
+  logger_set_minlvl(0);
 }
 
 void teardown(){
@@ -173,7 +205,7 @@ TEST_CASE("Basic Filtered File Reader"){
   LineFormat* lf = getDefaultLineFormat();
   std::string filename = TEST_FOLDER "data/sample.log"; 
   // Global so that state is updated between tests, stronger testing :), harder debugging :(
-  FilteredFileReader ffr(filename, lf);
+  FilteredFileReader ffr(filename, lf, nullptr, 10);
   ProcessedLine pl;
 
   SECTION("Filter on string, forward"){
@@ -250,12 +282,14 @@ TEST_CASE("Basic Filtered File Reader"){
     
     int count = 9;
     while(ffr.getPreviousValidLine(data, pl) != 0){
+      LOG(1, "Got previous line %llu %s\n", pl.line_num, data);
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count--;
     }
     count++;
     REQUIRE( count == 0);
     while(ffr.getNextValidLine(data, pl) != 0){
+      LOG(1, "Got next line %llu %s\n", pl.line_num, data);
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count++;
     }
@@ -270,15 +304,25 @@ TEST_CASE("Basic Filtered File Reader"){
   teardown();
 }
 
+
+
 TEST_CASE("Testing interface"){
   setup();
   LineFormat* lf = getDefaultLineFormat();
   std::string filename = TEST_FOLDER "data/sample.log"; 
-  LogParserInterface lpi(filename, lf, nullptr);
-  for(int i = 0; i < 20; i++){
-    std::string_view sv = lpi.getLine(i);
-    printf("Line %d: %.*s\n", i, sv.size(), sv.data());
+  std::string base_val = "INFO";
+  LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
+  LogParserInterface lpi(filename, lf, filter, 10);
+  
+  std::srand(std::time({}));
+  for(int i = 0; i < 100; i++){
+    int lineid = std::rand() % 10;
+    std::string_view line = lpi.getLine(lineid).line;
+    REQUIRE( std::strcmp(line.data(), info_and_bf_lines[lineid].data()) == 0);
   }
+  
+
+
   for(int i = 0;i < lf->fields.size(); i++){
     delete lf->fields[i];
   }

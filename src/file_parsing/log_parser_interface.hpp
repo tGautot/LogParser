@@ -8,6 +8,8 @@
 #include "line_filter.hpp"
 #include "line_parser.hpp"
 #include "filtered_file_reader.hpp"
+#include <climits>
+#include <cstdint>
 
 
 #define LP_PREV_BLOCK 0
@@ -45,11 +47,21 @@ struct LineBlock {
   }
 };
 
+#define INFO_NONE 0
+#define INFO_EOF 1
+#define INFO_IS_FIRST_LINE 2
+#define INFO_IS_MALFORMED 4
+#define INFO_ERROR 128
+typedef struct {
+  std::string_view line;
+  uint8_t flags;
+} line_info_t;
+
 
 class LogParserInterface {
 private:
   FilteredFileReader* ffr;
-  line_t active_line, known_first_line;
+  line_t active_line=0, known_first_line=0, known_last_line=LINE_MAX;
   uint32_t block_size;
   LineBlock block;
 
@@ -67,7 +79,7 @@ public:
   void deltaActiveLine(int64_t delta);
 
   //std::vector<std::string_view> getFromFirstLine(size_t count);
-  std::string_view getLine(line_t local_line_id);
+  line_info_t getLine(line_t local_line_id);
   //std::vector<std::string_view> getLines(line_t from, line_t count);
   //std::vector<std::string_view> getFromLastLine(size_t count);
 
