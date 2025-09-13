@@ -2,6 +2,7 @@
 #include "line_format.hpp"
 #include "processed_line.hpp"
 
+#include <iosfwd>
 #include <iostream>
 #include <vector>
 #include <deque>
@@ -76,6 +77,11 @@ void FilteredFileReader::incrCurrLine(){
 void FilteredFileReader::goToCheckpoint(line_t cp_id){
   m_is.seekg(m_checkpoints[cp_id]);
   m_curr_line = m_checkpoint_dist * cp_id;
+}
+
+void FilteredFileReader::goToPosition(std::streampos pos, line_t line_num){
+  m_is.seekg(pos);
+  m_curr_line = line_num;
 }
 
 size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
@@ -233,6 +239,12 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   line_t& searched_to = m_cached_previous.searched_to;
   std::deque<ProcessedLine>& valid_lines = m_cached_previous.valid_lines;
   
+  // printf("Looking for valid line before %lu, has ans for [%lu, %lu]\n", m_curr_line, searched_to, searched_from);
+  // printf("Lines in this interval are:\n");
+  // for( int i = 0; i < valid_lines.size(); i++){
+  //   printf("valid_line[%d] = %s\n", i, valid_lines[i].raw_line.data());
+  // }
+
   // higher, as in the document, meaning line count lower
   bool searching_from_higher = false;
   if(m_curr_line <= searched_from && valid_lines.size() > 0){
@@ -306,6 +318,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
         if(dist_to_old_results < 3*m_checkpoint_dist){
           // Try to keep old results
           seekRawLine(from_line);
+          std::deque<ProcessedLine> reversed_new_findings;
           while(1){
             if(tmpdest == nullptr) {
               tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
@@ -315,14 +328,26 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
             if(nread == 0){
               break;
             } else {
+
               if(searching_from_higher){
                 new_findings.emplace_back(tmp_pl);
               } else {
-                new_findings.emplace_front(tmp_pl);
+                reversed_new_findings.emplace_back(tmp_pl);
               }
               tmpdest = nullptr;
             }
           }
+          if(!searching_from_higher){
+            while(!reversed_new_findings.empty()){
+              new_findings.push_front(reversed_new_findings.back());
+              reversed_new_findings.pop_back();
+            }
+          }
+          // printf("Joining knows lines to news ones, dir %d\n", searching_from_higher);
+          // printf("New lines are: \n");
+          // for(int nlid = 0; nlid < new_findings.size(); nlid++){
+          //   printf("new_finding[%d] = %s\n", nlid, new_findings[nlid].raw_line.data());
+          // }
           if(searching_from_higher){
             while(!new_findings.empty()){
               valid_lines.emplace_front(new_findings.back());

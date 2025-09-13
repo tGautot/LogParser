@@ -312,7 +312,7 @@ TEST_CASE("Testing interface"){
   std::string filename = TEST_FOLDER "data/sample.log"; 
   std::string base_val = "INFO";
   LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
-  LogParserInterface lpi(filename, lf, filter, 10);
+  LogParserInterface lpi(filename, lf, filter, 4);
   
   std::srand(std::time({}));
   for(int i = 0; i < 100; i++){

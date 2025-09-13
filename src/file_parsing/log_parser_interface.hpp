@@ -4,18 +4,11 @@
 
 #include "common.hpp"
 #include "processed_line.hpp"
-#include "parsing_data.hpp"
 #include "line_filter.hpp"
-#include "line_parser.hpp"
 #include "filtered_file_reader.hpp"
 #include <climits>
 #include <cstdint>
-
-
-#define LP_PREV_BLOCK 0
-#define LP_MAIN_BLOCK 1
-#define LP_NEXT_BLOCK 2
-
+#include "cyclic_deque.hpp"
 
 #define BLKFLG_NONE 0
 #define BLKFLG_IS_FIRST 1
@@ -23,8 +16,8 @@
 
 
 struct LineBlock {
-  std::vector<char> raw_lines;
-  std::vector<ProcessedLine> lines;
+  cyclic_deque<char*> raw_lines;
+  cyclic_deque<ProcessedLine> lines;
   // Line nu,ber are global (i.e. number in the file)
   line_t first_line_glbl_id, last_line_glbl_id;
   
@@ -32,14 +25,12 @@ struct LineBlock {
   line_t first_line_local_id;
   uint8_t flags;
 
-  LineBlock() = default;
-  LineBlock(LineBlock&& tomove){
+  LineBlock(size_t max_size):lines(max_size), raw_lines(max_size){};
+  LineBlock(LineBlock&& tomove): lines(std::move(tomove.lines)), raw_lines(std::move(tomove.raw_lines)){
     flags = tomove.flags;
     first_line_glbl_id = tomove.first_line_glbl_id;
     last_line_glbl_id = tomove.last_line_glbl_id;
     first_line_local_id = tomove.first_line_local_id;
-    raw_lines = std::move(tomove.raw_lines);
-    lines = std::move(tomove.lines);
   }
 
   size_t size(){
@@ -60,11 +51,13 @@ typedef struct {
 
 class LogParserInterface {
 private:
+  char* raw_line_storage;
   FilteredFileReader* ffr;
   line_t active_line=0, known_first_line=0, known_last_line=LINE_MAX;
   uint32_t block_size;
   LineBlock block;
 
+  void print_lines_in_block();
 
 public:
 

@@ -26,6 +26,7 @@ public:
   std::vector<std::pair<line_t, line_t>> m_filtered_out_lines;
   
   void goToCheckpoint(line_t cp_id);
+  void goToPosition(std::streampos pos, line_t is_line_num);
   size_t readRawLine(char* s, uint32_t max_chars);
   void skipNextRawLines(line_t n);
   void incrCurrLine();
