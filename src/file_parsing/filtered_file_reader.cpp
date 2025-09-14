@@ -381,14 +381,14 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
 
         }
         LOG(1, "Freeing tmpdest %p after found valid\n", tmpdest);
-        if(tmpdest == nullptr){
+        if(tmpdest != nullptr){
           free(tmpdest);
           tmpdest = nullptr;
         }
         break;
       } 
       LOG(1, "Freeing tmpdest %p after NOT found valid\n", tmpdest);
-      if(tmpdest == nullptr){
+      if(tmpdest != nullptr){
         free(tmpdest);
         tmpdest = nullptr;
       }

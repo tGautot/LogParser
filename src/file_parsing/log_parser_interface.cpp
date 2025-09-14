@@ -39,6 +39,7 @@ LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, LineF
 }
 
 LogParserInterface::~LogParserInterface(){
+  free(raw_line_storage);
   delete ffr;
 }
 

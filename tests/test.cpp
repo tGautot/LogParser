@@ -327,5 +327,6 @@ TEST_CASE("Testing interface"){
     delete lf->fields[i];
   }
   delete lf;
+  delete filter;
   teardown();
 }
