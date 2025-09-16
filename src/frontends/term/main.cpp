@@ -22,7 +22,9 @@
 
 struct terminal_config {
   int cy, cx;
+  uint64_t line_offset = 0, frame_num = 0;
   int nrows, ncols;
+  bool reached_eof = false;
   struct termios orig_term;
 };
 
@@ -144,17 +146,20 @@ void handleInput(){
   switch (action)
   {
   case MOVE_DOWN:
-    if(cfg.cy < cfg.nrows - 1){
+    if(cfg.cy < cfg.nrows - 4*(1-cfg.reached_eof) ){
       cfg.cy++;
     } else {
-      // TODO scroll text up
+      if(!cfg.reached_eof) cfg.line_offset++;
     }
     break;
   case MOVE_UP:
-    if(cfg.cy > 0){
+    if(cfg.cy > 4 || (cfg.line_offset == 0 && cfg.cy > 0) ){
       cfg.cy--;
     } else {
-      // TODO scroll text down
+      if(cfg.line_offset != 0) {
+        cfg.reached_eof = false;
+        cfg.line_offset--;
+      }
     }
     break;
   case MOVE_LEFT:
@@ -180,15 +185,23 @@ void drawRows(std::string& todraw){
   todraw += ESC_CMD "K";
   for(int i = 0; i < cfg.nrows-1; i++){
     todraw += "~";
-    std::string_view fetched_line = lpi->getLine(i).line;
+    line_info_t lineinfo = lpi->getLine(i+cfg.line_offset);
+    std::string_view fetched_line = lineinfo.line;
     todraw += fetched_line;
+    if(fetched_line.size() < cfg.ncols-1){
+      todraw += std::string(cfg.ncols-1-fetched_line.size(), ' ');
+    }
     todraw += "\r\n";
+    if(lineinfo.flags & INFO_EOF){
+      cfg.reached_eof = true;
+      break;
+    }
   } 
   
   
   // Status Line
   char buf[80];
-  snprintf(buf, 80, "Status: l%d:c%d", cfg.cy, cfg.cx);
+  snprintf(buf, 80, "Status: l%d:c%d frame: %lu", cfg.cy, cfg.cx, cfg.frame_num);
   todraw += buf;
 }
 
@@ -254,9 +267,11 @@ int main(int argc, char** argv){
   std::cout << "First line is " << lpi->getLine(0).line << std::endl;
   handleInput();
   
+  if(getWindowSize(&cfg.nrows, &cfg.ncols) == -1) die("getWindowSize");
   while (1) {
-    if(getWindowSize(&cfg.nrows, &cfg.ncols) == -1) die("getWindowSize");
+    cfg.frame_num++;
     //todraw += ESC_CMD "2J";
+    todraw = "";
     todraw += ESC_CMD "?25l"; // Disable cursor display
     todraw += ESC_CMD "H"; // Set cursor at top left position
     drawRows(todraw);

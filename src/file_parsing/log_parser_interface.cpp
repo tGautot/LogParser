@@ -67,6 +67,9 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   LOG_LOGENTRY(3, "LogParserInterface::getLine");
   LOG_FCT(3, "Looking for line %llu, block rqnge is [%llu, %llu[\n", local_line_id, block.first_line_local_id, block.first_line_local_id + block_size);
   if(local_line_id >= block.first_line_local_id && local_line_id < block.first_line_local_id + block_size){
+    if( (block.flags & BLKFLG_IS_LAST) && local_line_id - block.first_line_local_id >= block.size() ){
+      return {"--EOF--", INFO_EOF};
+    }
     LOG_FCT(3, "Is in block!\n");
     const ProcessedLine& pl = block.lines[local_line_id - block.first_line_local_id]; 
     line_info_t ret{pl.raw_line, 0};
