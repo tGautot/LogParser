@@ -1,5 +1,22 @@
 #include "log_parser_terminal.hpp"
 
+#include <cstdio>
+
+extern "C"{
+#include "logging.h"
+}
+#include "logging.hpp"
+#include "terminal_state.hpp"
+
+#define CTRL_CHR(c) (c & 0x1f)
+
+#define ESC_CHR '\x1b'
+#define ESC_CMD "\x1b["
+
+#define CLEAR_SCREEN() write(STDOUT_FILENO, ESC_CMD "2J", 4);
+#define CURSOR_TL() write(STDOUT_FILENO, ESC_CMD "H", 3);
+
+
 
 int getCursorPosition(int *rows, int *cols) {
   char buf[32];
@@ -30,6 +47,53 @@ int getWindowSize(int *rows, int *cols) {
   }
 }
 
+static struct termios orig_term;
+static void die(const char* s);
+
+static void rollbackTerm(){
+  if(write(STDOUT_FILENO, ESC_CMD "?1049l", 8) != 8) die("write rollback alternate buf");
+  if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_term) == -1) die("tcsetattr");
+}
+
+static void die(const char* s){
+  CLEAR_SCREEN();
+  CURSOR_TL();
+  rollbackTerm();
+  perror(s);
+  exit(1);
+}
+
+static void setupTerm(term_state_t stt){
+  if(tcgetattr(STDIN_FILENO, &orig_term) == -1) die("tcgetattr");
+  atexit(rollbackTerm);
+
+  struct termios upd_term = orig_term;
+
+  // No echo: don't print what user is typing
+  // No canonical mode: read char by char (don't wait for enter key)
+  // No sig: don't allow ctrl+c/z to stop the program
+  // No exten: disable ctrl+v escaping next input
+  upd_term.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
+
+  // No crnl: Don't map ctrl+m ('\r') to '\n'
+  // No ixon: Hopefully you won't run this program on a printer
+  upd_term.c_iflag &= ~(ICRNL | IXON | BRKINT | INPCK | ISTRIP);
+
+  // Disable any kind of ouput processing
+  upd_term.c_oflag &= ~(OPOST);
+
+  upd_term.c_cflag |= (CS8);
+
+
+  if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &upd_term) == -1) die("tcsetattr");
+
+  if(write(STDOUT_FILENO, ESC_CMD "?1049h", 8) != 8) die("write alternate buf");
+}
+
+
+
+
+
 LogParserTerminal::LogParserTerminal(std::string& filename){
 LineFormat* lf = new LineFormat();
   lf->addField(new LineIntField("Date"));
@@ -46,7 +110,17 @@ LineFormat* lf = new LineFormat();
   lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
   
   lpi = new LogParserInterface(filename, lf, nullptr);
-  
+  setupTerm(term_state);
+  atexit(rollbackTerm);
+  term_state.cx = term_state.cy = 0;
+}
+
+void LogParserTerminal::registerUserInputMapping(std::string input_seq, user_action_t action_code){
+  user_input_mappings.push_back({input_seq, action_code});
+}
+
+void LogParserTerminal::registerActionCallback(ActionCallbackPtr action_cb){
+  action_cbs.push_back(action_cb);
 }
 
 void LogParserTerminal::drawRows(){
@@ -56,7 +130,7 @@ void LogParserTerminal::drawRows(){
     line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
     std::string_view fetched_line = lineinfo.line;
     frame_str += fetched_line;
-    if(fetched_line.size() < term_state.ncols-1){
+    if(fetched_line.size()+1 < term_state.ncols){
       frame_str += std::string(term_state.ncols-1-fetched_line.size(), ' ');
     }
     frame_str += "\r\n";
@@ -80,6 +154,7 @@ void LogParserTerminal::loop(){
   while (1) {
     term_state.frame_num++;
     //frame_str += ESC_CMD "2J";
+    getWindowSize(&term_state.nrows, &term_state.ncols);
     frame_str = "";
     frame_str += ESC_CMD "?25l"; // Disable cursor display
     frame_str += ESC_CMD "H"; // Set cursor at top left position
@@ -99,20 +174,29 @@ inline char readByte(){
 }
 
 user_action_t LogParserTerminal::getUserAction(){
+  LOG_LOGENTRY(3, "LogParserTerminal::getUserAction");
   std::string seq = "";
   bool need_next_byte = true;
   while(1){
     if(need_next_byte) seq += readByte();
+    if(seq == "q") exit(0);
     bool partial_match = false;
+    LOG_FCT(3, "Trying to match input sequence %s against %d mappings\n", seq.data(), user_input_mappings.size());
     for(auto mapping : user_input_mappings){
       std::string match = mapping.first;
       if(match.size() < seq.size()) continue;
       if(match.rfind(seq, 0) == 0){
-        if(match.size() == seq.size()) return mapping.second;
+        if(match.size() == seq.size()){
+          LOG_FCT(3, "Found match, action id is %d\n", mapping.second);
+          LOG_EXIT();
+          return mapping.second;
+        }
         partial_match = true; 
       }
     }
     
+    LOG_FCT(3, "found no match, patial match: %d\n", partial_match);
+
     need_next_byte = true;
     // We might find a match if we add characters
     if(partial_match) continue;
@@ -132,4 +216,5 @@ void LogParserTerminal::handleUserAction(user_action_t action){
   for(ActionCallbackPtr cb : action_cbs){
     cb(action, term_state, lpi);
   }
+  term_state.current_action_multiplier = 1;
 }

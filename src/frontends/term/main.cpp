@@ -7,7 +7,10 @@
 
 #include <string>
 
-#include "log_parser_interface.hpp"
+#include "log_parser_terminal.hpp"
+extern "C"{
+#include "logging.h"
+}
 #include "logging.hpp"
 
 
@@ -19,7 +22,7 @@
 #define CLEAR_SCREEN() write(STDOUT_FILENO, ESC_CMD "2J", 4);
 #define CURSOR_TL() write(STDOUT_FILENO, ESC_CMD "H", 3);
 
-
+/*
 struct terminal_config {
   int cy, cx;
   uint64_t line_offset = 0, frame_num = 0;
@@ -37,42 +40,9 @@ void die(const char* s){
   CURSOR_TL();
   perror(s);
   exit(1);
-}
+}*/
 
-void rollbackTerm(){
-  // TODO move this somewhere else
-  logger_teardown();
-  if(write(STDOUT_FILENO, ESC_CMD "?1049l", 8) != 8) die("write rollback alternate buf");
-  if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &cfg.orig_term) == -1) die("tcsetattr");
-}
-
-void setupTerm(){
-  if(tcgetattr(STDIN_FILENO, &cfg.orig_term) == -1) die("tcgetattr");
-  atexit(rollbackTerm);
-
-  struct termios upd_term = cfg.orig_term;
-
-  // No echo: don't print what user is typing
-  // No canonical mode: read char by char (don't wait for enter key)
-  // No sig: don't allow ctrl+c/z to stop the program
-  // No exten: disable ctrl+v escaping next input
-  upd_term.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
-
-  // No crnl: Don't map ctrl+m ('\r') to '\n'
-  // No ixon: Hopefully you won't run this program on a printer
-  upd_term.c_iflag &= ~(ICRNL | IXON | BRKINT | INPCK | ISTRIP);
-
-  // Disable any kind of ouput processing
-  upd_term.c_oflag &= ~(OPOST);
-
-  upd_term.c_cflag |= (CS8);
-
-
-  if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &upd_term) == -1) die("tcsetattr");
-
-  if(write(STDOUT_FILENO, ESC_CMD "?1049h", 8) != 8) die("write alternate buf");
-}
-
+/*
 inline char readByte(){
   char c;
   if(read(STDIN_FILENO, &c, 1) == -1) die("read");
@@ -249,37 +219,32 @@ LineFormat* getDefaultLineFormat(){
   lf->addField(new LineChrField("", ' ', true));
   lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
   return lf;
-}
+}*/
+
+#include "terminal_modules.hpp"
 
 int main(int argc, char** argv){
-  setupTerm();
   logger_setup();
-  logger_set_file("/dev/null");
-  CLEAR_SCREEN();
+  logger_set_file("./logs.log");
+  logger_set_minlvl(5);
+  LOG(3, "Starting log\n");
   if(argc != 2){
     printf("Usage ./lp_term <file_path>\n");
     return 1;
   }
-  char c;
-  char buf[32];
-  std::string todraw;
-  lpi = new LogParserInterface(argv[1], getDefaultLineFormat(), nullptr);
-  std::cout << "First line is " << lpi->getLine(0).line << std::endl;
-  handleInput();
-  
-  if(getWindowSize(&cfg.nrows, &cfg.ncols) == -1) die("getWindowSize");
-  while (1) {
-    cfg.frame_num++;
-    //todraw += ESC_CMD "2J";
-    todraw = "";
-    todraw += ESC_CMD "?25l"; // Disable cursor display
-    todraw += ESC_CMD "H"; // Set cursor at top left position
-    drawRows(todraw);
-    snprintf(buf, 32, ESC_CMD "%d;%dH", cfg.cy+1, cfg.cx+1);
-    todraw += buf;
-    todraw += ESC_CMD "?25h"; // enable cursor display
-    write(STDOUT_FILENO, todraw.data(), todraw.size());
-    handleInput();
-  }
+  std::string filename = argv[1];
+  LogParserTerminal lpt(filename);
+  CursorMoveModule cmm;
+  cmm.registerUserInputMapping(lpt);
+  cmm.registerUserActionCallback(lpt);
+  ArrowsModule am;
+  am.registerUserInputMapping(lpt);
+  am.registerUserActionCallback(lpt);
+  WasdModule wm;
+  wm.registerUserInputMapping(lpt);
+  wm.registerUserActionCallback(lpt);
+
+  lpt.loop();
+  logger_teardown();
 }
 

@@ -1,4 +1,4 @@
-add_library(logging SHARED)
+add_library(logging)
 
 target_sources(logging
   PRIVATE

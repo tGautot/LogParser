@@ -191,7 +191,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
     fo_end = (m_curr_line == 0) ? 0 : m_curr_line -1;
     LOG_FCT(5, "Looking at line number %llu filtered out start and end: %llu, %llu\n", m_curr_line, fo_begin, fo_end);
     size_t nread = readRawLine(dest, m_max_chars_per_line);
-    LOG_FCT(5, "Read %llu chars, line is well formated: %d, line content is %s\n", nread, pl.well_formated, dest);
+    LOG_FCT(5, "Read %llu chars, line is well formated: %d, line content is \"%s\"\n", nread, pl.well_formated, dest);
     pl.set_data(m_curr_line-1, dest, nread, m_line_parser, line_stt);
     if( (m_accept_bad_format && !pl.well_formated) 
         || m_filter == nullptr || m_filter->passes(pl.pl.get())){

@@ -1,5 +1,5 @@
-#ifndef LP_TERMINAL_HPP
-#define LP_TERMINAL_HPP
+#ifndef LP_TERMINAL_MODULE_HPP
+#define LP_TERMINAL_MODULE_HPP
 
 #include "terminal_state.hpp"
 #include "log_parser_terminal.hpp"
