@@ -14,6 +14,7 @@
 class LogParserTerminalModule {
   virtual void registerUserInputMapping(LogParserTerminal&) = 0;
   virtual void registerUserActionCallback(LogParserTerminal&) = 0;
+  virtual void registerCommandCallback(LogParserTerminal&) = 0;
 
 };
 

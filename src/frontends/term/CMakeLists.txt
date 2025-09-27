@@ -7,6 +7,7 @@ target_sources(lp_term
     src/modules/cursor_move_module.cpp
     src/modules/arrows_module.cpp
     src/modules/wasd_module.cpp
+    src/modules/text_search_module.cpp
   PUBLIC 
     include/log_parser_terminal.hpp
     include/lp_terminal_module.hpp

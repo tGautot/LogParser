@@ -1,3 +1,4 @@
+#include "log_parser_terminal.hpp"
 #include "terminal_modules.hpp"
 
 void WasdModule::registerUserInputMapping(LogParserTerminal& term){
@@ -9,3 +10,7 @@ void WasdModule::registerUserInputMapping(LogParserTerminal& term){
 void WasdModule::registerUserActionCallback(LogParserTerminal&) {
   // This module doesn't handle any action
 };
+
+void WasdModule::registerCommandCallback(LogParserTerminal&){
+  
+}

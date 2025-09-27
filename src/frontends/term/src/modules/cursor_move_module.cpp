@@ -42,3 +42,6 @@ void CursorMoveModule::registerUserActionCallback(LogParserTerminal& term){
     return 0;
   });
 };
+void CursorMoveModule::registerCommandCallback(LogParserTerminal&){
+  
+}

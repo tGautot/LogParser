@@ -75,13 +75,30 @@ void FilteredFileReader::incrCurrLine(){
 }
 
 void FilteredFileReader::goToCheckpoint(line_t cp_id){
-  m_is.seekg(m_checkpoints[cp_id]);
-  m_curr_line = m_checkpoint_dist * cp_id;
+  if(cp_id >= m_checkpoints.size()){
+    if(m_is.tellg() < m_checkpoints.back()){
+      goToCheckpoint(m_checkpoints.size()-1);
+    }
+    int cps_to_clear = cp_id - m_checkpoints.size() + 1;
+    while(cps_to_clear--){
+      skipNextRawLines(m_checkpoint_dist - (m_curr_line % m_checkpoint_dist));
+    }
+  } else {
+    m_is.seekg(m_checkpoints[cp_id]);
+    m_curr_line = m_checkpoint_dist * cp_id;
+  }
 }
 
 void FilteredFileReader::goToPosition(std::streampos pos, line_t line_num){
   m_is.seekg(pos);
   m_curr_line = line_num;
+}
+
+void FilteredFileReader::goToLine(line_t line_num){
+  if(m_curr_line > line_num || m_curr_line < line_num-(line_num%m_checkpoint_dist)){
+    goToCheckpoint(line_num/m_checkpoint_dist);
+  }
+  skipNextRawLines(line_num%m_checkpoint_dist);
 }
 
 size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
@@ -189,9 +206,11 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
   while(!m_is.eof() && (m_curr_line < stop_at_line)){
     line_stt = m_is.tellg();
     fo_end = (m_curr_line == 0) ? 0 : m_curr_line -1;
+    
     LOG_FCT(5, "Looking at line number %llu filtered out start and end: %llu, %llu\n", m_curr_line, fo_begin, fo_end);
     size_t nread = readRawLine(dest, m_max_chars_per_line);
     LOG_FCT(5, "Read %llu chars, line is well formated: %d, line content is \"%s\"\n", nread, pl.well_formated, dest);
+    
     pl.set_data(m_curr_line-1, dest, nread, m_line_parser, line_stt);
     if( (m_accept_bad_format && !pl.well_formated) 
         || m_filter == nullptr || m_filter->passes(pl.pl.get())){
@@ -262,6 +281,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
 
           // Copy data
           pl = ProcessedLine(*itt, dest, m_max_chars_per_line);
+          LOG_FCT(5, "Found processed line in cache %lu:%s\n", pl.line_num, pl.raw_line.data());
           LOG_EXIT();
           return pl.raw_line.size();
         }

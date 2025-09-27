@@ -7,16 +7,26 @@ class CursorMoveModule : public LogParserTerminalModule {
   public:
   void registerUserInputMapping(LogParserTerminal&) override;
   void registerUserActionCallback(LogParserTerminal&) override;
+  void registerCommandCallback(LogParserTerminal&) override;
 };
 class ArrowsModule : public LogParserTerminalModule {
   public:
   void registerUserInputMapping(LogParserTerminal&) override;
   void registerUserActionCallback(LogParserTerminal&) override;
+  void registerCommandCallback(LogParserTerminal&) override;
 };
 class WasdModule : public LogParserTerminalModule {
   public:
   void registerUserInputMapping(LogParserTerminal&) override;
   void registerUserActionCallback(LogParserTerminal&) override;
+  void registerCommandCallback(LogParserTerminal&) override;
 };
+class TextSearchModule : public LogParserTerminalModule {
+  public:
+  void registerUserInputMapping(LogParserTerminal&) override;
+  void registerUserActionCallback(LogParserTerminal&) override;
+  void registerCommandCallback(LogParserTerminal&) override;
+};
+
 
 #endif

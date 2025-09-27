@@ -1,6 +1,7 @@
 #include "log_parser_terminal.hpp"
 
 #include <cstdio>
+#include <cstring>
 
 extern "C"{
 #include "logging.h"
@@ -113,6 +114,8 @@ LineFormat* lf = new LineFormat();
   setupTerm(term_state);
   atexit(rollbackTerm);
   term_state.cx = term_state.cy = 0;
+  term_state.input_mode = InputMode::ACTION;
+  term_state.raw_input = "";
 }
 
 void LogParserTerminal::registerUserInputMapping(std::string input_seq, user_action_t action_code){
@@ -123,6 +126,10 @@ void LogParserTerminal::registerActionCallback(ActionCallbackPtr action_cb){
   action_cbs.push_back(action_cb);
 }
 
+void LogParserTerminal::registerCommandCallback(CommandCallbackPtr cmd_cb){
+  command_cbs.push_back(cmd_cb);
+}
+
 void LogParserTerminal::drawRows(){
   frame_str += ESC_CMD "K";
   for(int i = 0; i < term_state.nrows-1; i++){
@@ -130,8 +137,8 @@ void LogParserTerminal::drawRows(){
     line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
     std::string_view fetched_line = lineinfo.line;
     frame_str += fetched_line;
-    if(fetched_line.size()+1 < term_state.ncols){
-      frame_str += std::string(term_state.ncols-1-fetched_line.size(), ' ');
+    if(fetched_line.size() < term_state.ncols){
+      frame_str += std::string(term_state.ncols-fetched_line.size(), ' ');
     }
     frame_str += "\r\n";
     if(lineinfo.flags & INFO_EOF){
@@ -140,10 +147,18 @@ void LogParserTerminal::drawRows(){
     }
   } 
   
-  
-  // Status Line
   char buf[80];
-  snprintf(buf, 80, "Status: l%d:c%d frame: %lu", term_state.cy, term_state.cx, term_state.frame_num);
+  if(term_state.input_mode == ACTION){
+    // Status Line
+    snprintf(buf, 80, "Status: l%d:c%d frame: %lu", term_state.cy, term_state.cx, term_state.frame_num);
+  } else if(term_state.input_mode == RAW) {
+    snprintf(buf, 80, "%s", term_state.raw_input.data());
+  } else {
+    snprintf(buf, 80, "Unknown input mode %d", term_state.input_mode);
+  }
+  if(strlen(buf) < term_state.ncols){
+      frame_str += std::string(term_state.ncols-strlen(buf), ' ');
+    }
   frame_str += buf;
 }
 
@@ -177,8 +192,28 @@ user_action_t LogParserTerminal::getUserAction(){
   LOG_LOGENTRY(3, "LogParserTerminal::getUserAction");
   std::string seq = "";
   bool need_next_byte = true;
+  
   while(1){
+    if(term_state.input_mode == RAW){
+      char c = readByte();
+      if(c == 13) { // <Enter>
+        for(auto cmd_cb : command_cbs){
+          cmd_cb(term_state.raw_input, term_state, lpi);
+        }
+        term_state.input_mode = ACTION;
+        term_state.raw_input = "";
+        break;
+      }
+      term_state.raw_input += c;
+      break;
+    }
+    
     if(need_next_byte) seq += readByte();
+    if(seq == ":"){
+      term_state.input_mode = RAW;
+      term_state.raw_input = ":";
+      break;
+    }
     if(seq == "q") exit(0);
     bool partial_match = false;
     LOG_FCT(3, "Trying to match input sequence %s against %d mappings\n", seq.data(), user_input_mappings.size());

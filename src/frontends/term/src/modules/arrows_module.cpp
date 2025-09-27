@@ -9,3 +9,6 @@ void ArrowsModule::registerUserInputMapping(LogParserTerminal& term) {
 void ArrowsModule::registerUserActionCallback(LogParserTerminal&) {
   // This module doesn't handle any action
 };
+void ArrowsModule::registerCommandCallback(LogParserTerminal&){
+  
+}

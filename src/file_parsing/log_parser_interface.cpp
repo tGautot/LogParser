@@ -1,4 +1,5 @@
 #include "log_parser_interface.hpp"
+#include "common.hpp"
 #include "line_format.hpp"
 #include "logging.hpp"
 #include "processed_line.hpp"
@@ -6,6 +7,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <stdint.h>
 #include <string_view>
 
 
@@ -64,13 +66,13 @@ void LogParserInterface::print_lines_in_block(){
 
 
 line_info_t LogParserInterface::getLine(line_t local_line_id){
-  LOG_LOGENTRY(3, "LogParserInterface::getLine");
-  LOG_FCT(3, "Looking for line %llu, block rqnge is [%llu, %llu[\n", local_line_id, block.first_line_local_id, block.first_line_local_id + block_size);
+  LOG_LOGENTRY(9, "LogParserInterface::getLine");
+  LOG_FCT(9, "Looking for line %llu, block rqnge is [%llu, %llu[\n", local_line_id, block.first_line_local_id, block.first_line_local_id + block_size);
   if(local_line_id >= block.first_line_local_id && local_line_id < block.first_line_local_id + block_size){
     if( (block.flags & BLKFLG_IS_LAST) && local_line_id - block.first_line_local_id >= block.size() ){
       return {"--EOF--", INFO_EOF};
     }
-    LOG_FCT(3, "Is in block!\n");
+    LOG_FCT(9, "Is in block!\n");
     const ProcessedLine& pl = block.lines[local_line_id - block.first_line_local_id]; 
     line_info_t ret{pl.raw_line, 0};
     if(pl.line_num == known_first_line) ret.flags |= INFO_IS_FIRST_LINE;
@@ -85,7 +87,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   assert(block.lines.full());
 
   if(local_line_id < block.first_line_local_id){
-    LOG_FCT(3, "Is before block!\n");
+    LOG_FCT(9, "Is before block!\n");
     if(block.flags & BLKFLG_IS_FIRST) return {"--LOG PARSER ERROR--", INFO_ERROR};
     // Requested line is before
     // Fill block by going upwards in the file
@@ -118,7 +120,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   // Move forward
   // TODO find way to let user know that we have reached eof and line id is invalid
   if(block.flags & BLKFLG_IS_LAST) return {"--LOG PARSER EOF--", INFO_EOF};
-  LOG_FCT(3, "Is after block!\n");
+  LOG_FCT(9, "Is after block!\n");
   if(block.size() < block_size) block.lines.resize(block_size);
   uint32_t nread;
   int block_offset = block_size/10;
@@ -154,6 +156,19 @@ std::vector<std::string_view> LogParserInterface::getLines(line_t from, line_t c
 }
 */
 
-line_t LogParserInterface::findNextOccurence(std::string match, line_t from, bool forward){
-
+std::pair<line_t, size_t> LogParserInterface::findNextOccurence(std::string match, line_t from, bool forward){
+  ffr->goToLine(from);
+  char* tmp = new char[ffr->getMaxCharsPerLine()];
+  ProcessedLine pl;
+  while((forward) ? ffr->getNextValidLine(tmp, pl) != 0 :
+                    ffr->getPreviousValidLine(tmp, pl) != 0){
+  
+    size_t sttpos = pl.raw_line.find(match);
+    if(sttpos != std::string::npos){
+      // Found match
+      delete[] tmp;
+      return {pl.line_num, sttpos};
+    }
+  }
+  return {LINE_T_MAX, SIZE_MAX};
 }

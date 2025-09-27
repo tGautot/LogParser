@@ -234,6 +234,7 @@ int main(int argc, char** argv){
   }
   std::string filename = argv[1];
   LogParserTerminal lpt(filename);
+  // TODO load modules on the fly based on config
   CursorMoveModule cmm;
   cmm.registerUserInputMapping(lpt);
   cmm.registerUserActionCallback(lpt);
@@ -243,6 +244,10 @@ int main(int argc, char** argv){
   WasdModule wm;
   wm.registerUserInputMapping(lpt);
   wm.registerUserActionCallback(lpt);
+  TextSearchModule tsm;
+  tsm.registerUserInputMapping(lpt);
+  tsm.registerUserActionCallback(lpt);
+  tsm.registerCommandCallback(lpt);
 
   lpt.loop();
   logger_teardown();
