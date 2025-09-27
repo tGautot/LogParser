@@ -317,7 +317,7 @@ TEST_CASE("Testing interface"){
   std::srand(std::time({}));
   for(int i = 0; i < 100; i++){
     int lineid = std::rand() % 10;
-    std::string_view line = lpi.getLine(lineid).line;
+    std::string_view line = lpi.getLine(lineid).line->raw_line;
     REQUIRE( std::strcmp(line.data(), info_and_bf_lines[lineid].data()) == 0);
   }
   

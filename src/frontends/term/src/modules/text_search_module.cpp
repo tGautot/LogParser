@@ -17,7 +17,9 @@ static bool searching = false;
 static std::string match_str = "";
 
 static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward){
-  line_t cursor_start_line = state.line_offset + state.cy + ((forward) ? 1 : 0);
+  // TODO Handle case where cursor in "in the void" and this causes nullptr exception
+  line_t cursor_start_line = state.displayed_pls[state.cy]->line_num + (forward ? 1 : 0);
+  LOG(3, "Commanding next search to start at line %lu\n", cursor_start_line);
   std::pair<line_t, size_t> match_pos = lpi->findNextOccurence(match_str, cursor_start_line, forward);
   line_t line_num = match_pos.first;
   size_t char_pos = match_pos.second;
@@ -26,7 +28,6 @@ static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward)
     // TODO Show user that we found no match
     // Or go around the file
   } else {
-    // TODO cx/cy coords are using too many assumptions, enrich term state and use that instead
     int vert_offset = state.nrows / 2 - 1;
     if(line_num > vert_offset){
       state.line_offset = line_num - vert_offset;
@@ -35,7 +36,7 @@ static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward)
       state.line_offset = 0;
       state.cy = line_num;
     }
-    state.cx = char_pos + 1;
+    state.cx = char_pos + state.info_col_size;
   }
   return line_num;
 }

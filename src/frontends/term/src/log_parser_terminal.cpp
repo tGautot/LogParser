@@ -1,7 +1,10 @@
 #include "log_parser_terminal.hpp"
+#include "processed_line.hpp"
 
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 extern "C"{
 #include "logging.h"
@@ -132,20 +135,38 @@ void LogParserTerminal::registerCommandCallback(CommandCallbackPtr cmd_cb){
 
 void LogParserTerminal::drawRows(){
   frame_str += ESC_CMD "K";
+  term_state.displayed_pls.clear();
   for(int i = 0; i < term_state.nrows-1; i++){
     frame_str += "~";
     line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
-    std::string_view fetched_line = lineinfo.line;
-    frame_str += fetched_line;
-    if(fetched_line.size() < term_state.ncols){
-      frame_str += std::string(term_state.ncols-fetched_line.size(), ' ');
-    }
-    frame_str += "\r\n";
-    if(lineinfo.flags & INFO_EOF){
-      term_state.reached_eof = true;
-      break;
-    }
+    term_state.displayed_pls.push_back(lineinfo.line);
+    if(lineinfo.line != nullptr) term_state.info_col_size = 2/*size of "~ "*/ + std::to_string(lineinfo.line->line_num).size(); 
   } 
+  
+  std::string_view fetched_line;
+  for(int i = 0; i < term_state.nrows-1; i++){
+    const ProcessedLine* pl = term_state.displayed_pls[i];
+    int line_size = 0;
+    if(pl != nullptr){
+      fetched_line = pl->raw_line;
+      std::string line_num_str = std::to_string(pl->line_num);
+      if(line_num_str.size()+2 < term_state.info_col_size) {
+        frame_str += std::string(term_state.info_col_size - line_num_str.size() - 2, ' ');
+      }
+      frame_str += line_num_str + "~ ";
+      frame_str += fetched_line;
+      if(fetched_line.size() + term_state.info_col_size < term_state.ncols){
+        frame_str += std::string(term_state.ncols-fetched_line.size()-term_state.info_col_size, ' ');
+      }
+    } else {
+      frame_str += std::string(term_state.ncols, ' ');
+    }
+    
+    frame_str += "\r\n";
+    if(pl == nullptr){
+      term_state.reached_eof = true;
+    }
+  }
   
   char buf[80];
   if(term_state.input_mode == ACTION){
@@ -156,10 +177,10 @@ void LogParserTerminal::drawRows(){
   } else {
     snprintf(buf, 80, "Unknown input mode %d", term_state.input_mode);
   }
-  if(strlen(buf) < term_state.ncols){
-      frame_str += std::string(term_state.ncols-strlen(buf), ' ');
-    }
   frame_str += buf;
+  if(strlen(buf) < term_state.ncols){
+    frame_str += std::string(term_state.ncols-strlen(buf), ' ');
+  }
 }
 
 

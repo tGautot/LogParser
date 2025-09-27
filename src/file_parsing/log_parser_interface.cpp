@@ -70,11 +70,11 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   LOG_FCT(9, "Looking for line %llu, block rqnge is [%llu, %llu[\n", local_line_id, block.first_line_local_id, block.first_line_local_id + block_size);
   if(local_line_id >= block.first_line_local_id && local_line_id < block.first_line_local_id + block_size){
     if( (block.flags & BLKFLG_IS_LAST) && local_line_id - block.first_line_local_id >= block.size() ){
-      return {"--EOF--", INFO_EOF};
+      return {nullptr, INFO_EOF};
     }
     LOG_FCT(9, "Is in block!\n");
     const ProcessedLine& pl = block.lines[local_line_id - block.first_line_local_id]; 
-    line_info_t ret{pl.raw_line, 0};
+    line_info_t ret{&pl, 0};
     if(pl.line_num == known_first_line) ret.flags |= INFO_IS_FIRST_LINE;
     if(pl.line_num == known_last_line) ret.flags |= INFO_EOF;
     if(!pl.well_formated) ret.flags |= INFO_IS_MALFORMED;
@@ -88,7 +88,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
 
   if(local_line_id < block.first_line_local_id){
     LOG_FCT(9, "Is before block!\n");
-    if(block.flags & BLKFLG_IS_FIRST) return {"--LOG PARSER ERROR--", INFO_ERROR};
+    if(block.flags & BLKFLG_IS_FIRST) return {nullptr, INFO_ERROR};
     // Requested line is before
     // Fill block by going upwards in the file
     // Since we are using a cyclic deque and it MUST be full, push back will put at front and inversly
@@ -119,7 +119,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   // Requested line is after what block holds
   // Move forward
   // TODO find way to let user know that we have reached eof and line id is invalid
-  if(block.flags & BLKFLG_IS_LAST) return {"--LOG PARSER EOF--", INFO_EOF};
+  if(block.flags & BLKFLG_IS_LAST) return {nullptr, INFO_EOF};
   LOG_FCT(9, "Is after block!\n");
   if(block.size() < block_size) block.lines.resize(block_size);
   uint32_t nread;

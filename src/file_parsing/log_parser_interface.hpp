@@ -44,7 +44,7 @@ struct LineBlock {
 #define INFO_IS_MALFORMED 4
 #define INFO_ERROR 128
 typedef struct {
-  std::string_view line;
+  const ProcessedLine* line;
   uint8_t flags;
 } line_info_t;
 

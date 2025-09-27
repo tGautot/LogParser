@@ -94,11 +94,16 @@ void FilteredFileReader::goToPosition(std::streampos pos, line_t line_num){
   m_curr_line = line_num;
 }
 
+
 void FilteredFileReader::goToLine(line_t line_num){
+  LOG_ENTRY("FilteredFileReader::goToLine");
+  LOG_FCT(3, "target: %lu, curr: %lu, cp_dist: %lu\n", line_num, m_curr_line, m_checkpoint_dist);
   if(m_curr_line > line_num || m_curr_line < line_num-(line_num%m_checkpoint_dist)){
     goToCheckpoint(line_num/m_checkpoint_dist);
+    LOG(3, "curr line aftger goToCheckpoint: %lu\n", m_curr_line);
   }
-  skipNextRawLines(line_num%m_checkpoint_dist);
+  skipNextRawLines(line_num-m_curr_line);
+  LOG(3, "curr line aftger skipping %lu lines: %lu\n", line_num-m_curr_line, m_curr_line);
 }
 
 size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
@@ -252,6 +257,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   
   // Needs to at least be greater than m_checkpoint_dist to simplify some logic
   LOG_LOGENTRY(1, "FilteredFileReader::getPreviousValidLine");
+  LOG_FCT(5, "Searching previous valid line from %lu\n", m_curr_line);
   const size_t max_lines_stored = 3*m_checkpoint_dist;
 
   line_t& searched_from = m_cached_previous.searched_from;
