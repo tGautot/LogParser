@@ -2,11 +2,14 @@
 #include "log_parser_interface.hpp"
 #include "log_parser_terminal.hpp"
 #include "terminal_modules.hpp"
+#include "terminal_state.hpp"
 #include <cstddef>
+#include <unistd.h>
 #include <utility>
 
 #define ACTION_SEARCH_NEXT 100
 #define ACTION_SEARCH_PREV 101
+#define ACTION_START_SEARCH 110
 
 extern "C" {
   #include "logging.h"
@@ -44,12 +47,21 @@ static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward)
 void TextSearchModule::registerUserInputMapping(LogParserTerminal& term) {
   term.registerUserInputMapping("n", ACTION_SEARCH_NEXT);
   term.registerUserInputMapping("N", ACTION_SEARCH_PREV);
+  term.registerUserInputMapping("/", ACTION_START_SEARCH);
 };
 void TextSearchModule::registerUserActionCallback(LogParserTerminal& term) {
   term.registerActionCallback([](user_action_t action, term_state_t& state, LogParserInterface* lpi) -> int{
     if(!searching) return 0;
     if(action != ACTION_SEARCH_NEXT && action != ACTION_SEARCH_PREV) return 0;
     search( state, lpi, action == ACTION_SEARCH_NEXT);
+    return 0;
+  });
+  term.registerActionCallback([](user_action_t action, term_state_t& state, LogParserInterface* lpi) -> int{
+    if(action == ACTION_START_SEARCH){
+      // Setup search mode manually
+      state.input_mode = RAW;
+      state.raw_input = ":?";  
+    }
     return 0;
   });
 };
@@ -61,6 +73,7 @@ void TextSearchModule::registerCommandCallback(LogParserTerminal& term){
     if(substr_pos == 0){
       searching = true;
       match_str = cmd.substr(2);
+      state.highlight_word = match_str;
       line_t l = search(state, lpi, true);
       LOG_FCT(3, "Command is indeed for search, looking for string %s", match_str.data());
       LOG_FCT(3, "Found it at %lu\n", l);

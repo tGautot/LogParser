@@ -154,7 +154,18 @@ void LogParserTerminal::drawRows(){
         frame_str += std::string(term_state.info_col_size - line_num_str.size() - 2, ' ');
       }
       frame_str += line_num_str + "~ ";
-      frame_str += fetched_line;
+      std::string formatted_line = std::string(fetched_line);
+      size_t match_pos = 0;
+      if(term_state.highlight_word != "") while((match_pos = formatted_line.find(term_state.highlight_word, match_pos)) != std::string::npos){
+        static std::string end_invert_tag = "\e[27m"; 
+        static std::string start_invert_tag = "\e[7m"; 
+        LOG(5, "Found one match in line %lu highlighting it...", pl->line_num);
+        formatted_line.insert(formatted_line.begin() + match_pos + term_state.highlight_word.length(), end_invert_tag.begin(), end_invert_tag.end());
+        formatted_line.insert(formatted_line.begin() + match_pos, start_invert_tag.begin(), start_invert_tag.end());
+        match_pos += term_state.highlight_word.length() + start_invert_tag.length() + end_invert_tag.length();
+      }
+
+      frame_str += formatted_line;
       if(fetched_line.size() + term_state.info_col_size < term_state.ncols){
         frame_str += std::string(term_state.ncols-fetched_line.size()-term_state.info_col_size, ' ');
       }
@@ -168,7 +179,7 @@ void LogParserTerminal::drawRows(){
     }
   }
   
-  char buf[80];
+  char buf[81];
   if(term_state.input_mode == ACTION){
     // Status Line
     snprintf(buf, 80, "Status: l%d:c%d frame: %lu", term_state.cy, term_state.cx, term_state.frame_num);
@@ -195,7 +206,11 @@ void LogParserTerminal::loop(){
     frame_str += ESC_CMD "?25l"; // Disable cursor display
     frame_str += ESC_CMD "H"; // Set cursor at top left position
     drawRows();
-    snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.cy+1, term_state.cx+1);
+    if(term_state.input_mode == RAW){
+      snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.nrows, term_state.raw_input.length()+1);
+    } else {
+      snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.cy+1, term_state.cx+1);
+    }
     frame_str += buf;
     frame_str += ESC_CMD "?25h"; // enable cursor display
     write(STDOUT_FILENO, frame_str.data(), frame_str.size());
@@ -217,12 +232,18 @@ user_action_t LogParserTerminal::getUserAction(){
   while(1){
     if(term_state.input_mode == RAW){
       char c = readByte();
+      LOG(5, "In raw mode and read char %d\n", c);
+      LOG(5, "Before applying char str is %s\n", term_state.raw_input.data());
       if(c == 13) { // <Enter>
         for(auto cmd_cb : command_cbs){
           cmd_cb(term_state.raw_input, term_state, lpi);
         }
         term_state.input_mode = ACTION;
         term_state.raw_input = "";
+        break;
+      }
+      if(c == 127) { // <Backspace>
+        term_state.raw_input.erase(term_state.raw_input.size()-1);
         break;
       }
       term_state.raw_input += c;

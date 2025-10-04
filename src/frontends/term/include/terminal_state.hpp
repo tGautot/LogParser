@@ -20,6 +20,7 @@ typedef struct {
   std::string raw_input;
   bool reached_eof = false;
   std::vector<const ProcessedLine*> displayed_pls;
+  std::string highlight_word;
 } term_state_t;
 
   #endif
