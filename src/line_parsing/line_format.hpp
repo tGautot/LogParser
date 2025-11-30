@@ -126,9 +126,136 @@ public:
     }
   }
 
+  void toString(){
+    for(LineField* lf : fields){
+      std::string name = lf->name;
+      LineChrField* lcf;
+      LineStrField* lsf;
+      switch (lf->ft)
+      {
+      case FieldType::INT:
+        printf("{INT:%s}\n", name.data());
+        break;
+      case FieldType::DBL:
+        printf("{DBL:%s}\n", name.data());
+        break;
+      case FieldType::CHR:
+        lcf = dynamic_cast<LineChrField*>(lf);
+        printf("{CHR:%s,%c,%d}\n", name.data(), lcf->opt->target, lcf->opt->repeat);
+        break;
+      case FieldType::STR:
+        lsf = dynamic_cast<LineStrField*>(lf);
+        printf("{STR:%s,%d,%c,%d}\n", name.data(), lsf->opt->stop_type, lsf->opt->delim, lsf->opt->nchar);
+        break;
+      default:
+        // TODO throw error
+        break;
+      }
+    }
+  }
+
   static LineFormat* fromFormatString(std::string fmt_str){
     LineFormat* lf = new LineFormat();
-    // TODO
+    
+    // Fmt string might look something like this
+    // {INT:time}-{STR:day} {DBL} [{STR:func}:{INT:linenum}] {STR:freetext}
+    
+    size_t idx = 0;
+
+
+    int STATE_FREE = 0;
+    int STATE_FIELD = 1;
+    int parse_state = STATE_FREE; 
+
+    while(idx < fmt_str.size()){
+      char c = fmt_str[idx];
+      if(c != '{'){
+        lf->addField(new LineChrField("", c, false));
+        idx++;
+      } else {
+        // Only available tags at the moment are INT DBL STR CHR, can differentiate just by first char
+        // TODO check string length before fetching the chars
+        idx++;
+        c = fmt_str[idx];
+        std::string field_name = "";
+        StrFieldStopType stsp;
+        int str_n_char = 0;
+        char str_stp_chr = 0;
+        char field_chr = 0;
+        bool chr_repeat = false;
+        
+        if(fmt_str[idx+3] == ':'){
+          size_t name_begin = idx+4;
+          size_t name_end = name_begin;
+          while(true){
+            char cc = fmt_str[name_end]; 
+            if(cc == 0 || cc == ',' || cc == '}') break;
+            name_end++;
+          }
+          field_name = fmt_str.substr(name_begin, name_end-name_begin);
+
+          if(',' == fmt_str[name_end]){
+            if(c == 'S'){
+              str_n_char = atoi(fmt_str.data() + name_end + 1);
+              idx = name_end+1;
+              while(fmt_str[idx] >= '0' && fmt_str[idx] <= '9'){
+                idx++;
+              }
+              if(fmt_str[idx] != '}') throw std::exception();
+              stsp = NCHAR;
+              idx++; 
+            } else if(c == 'C'){
+              idx = name_end+1;
+              field_chr = fmt_str[idx];
+              if(fmt_str[idx+1] != ',') throw std::exception();
+              idx+=2;
+              chr_repeat = fmt_str[idx] != '0';
+              if(fmt_str[idx+1] != '}') throw std::exception();
+              idx += 2;
+            } else {
+              // TODO throw error, only STR and CHR have params at the moment
+              throw std::exception();
+              
+            }
+          }
+          else if('}' == fmt_str[name_end] && c == 'S'){
+            stsp = DELIM;
+            str_stp_chr = fmt_str[name_end+1]; // Also works if fmt_str[name_end+1] == 0 
+            idx = name_end+1;
+          }
+          else{
+            idx = name_end + 1;
+          }
+        }
+
+
+        switch (c)
+        {
+        case 'I':
+          lf->addField(new LineIntField(field_name));
+          break;
+        case 'D':
+          lf->addField(new LineDblField(field_name));
+          break;
+        case 'S':
+          lf->addField(new LineStrField(field_name, stsp, str_stp_chr, str_n_char));
+          break;
+        case 'C':
+          lf->addField(new LineChrField(field_name, field_chr, chr_repeat));
+          break;
+        
+        default:
+          throw std::exception();
+          break;
+        }
+
+
+
+      }
+    }
+
+
+
     return lf;
   }
 };

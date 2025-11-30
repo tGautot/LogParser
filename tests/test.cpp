@@ -75,6 +75,32 @@ void teardown(){
   logger_teardown();
 }
 
+TEST_CASE("Line Format specifier parsing"){
+  setup();
+  std::string spec = "{INT:Date} {INT:Time} {STR:Level} {CHR:, ,1}:{CHR:,.,1}{STR:Source}:{CHR:, ,1}{STR:Mesg}";
+  LineFormat *lf = LineFormat::fromFormatString(spec);
+  lf->toString();
+  REQUIRE(lf->fields.size() == 13);
+  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[0]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[1]) != nullptr);
+  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[2]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[3]) != nullptr);
+  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[4]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[5]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[6]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[7]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[8]) != nullptr);
+  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[9]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[10]) != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[11]) != nullptr);
+  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[12]) != nullptr);
+
+  Parser* p = Parser::fromLineFormat(lf);
+  ParsedLine* pl = new ParsedLine(lf);
+
+  REQUIRE(p->parseLine(info_lines[0], pl) == true);
+  teardown();
+}
 
 TEST_CASE("Basic line parsing"){
   setup();

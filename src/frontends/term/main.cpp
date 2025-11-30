@@ -238,12 +238,15 @@ int main(int argc, char** argv){
   CursorMoveModule cmm;
   cmm.registerUserInputMapping(lpt);
   cmm.registerUserActionCallback(lpt);
+  
   ArrowsModule am;
   am.registerUserInputMapping(lpt);
   am.registerUserActionCallback(lpt);
+  
   WasdModule wm;
   wm.registerUserInputMapping(lpt);
   wm.registerUserActionCallback(lpt);
+  
   TextSearchModule tsm;
   tsm.registerUserInputMapping(lpt);
   tsm.registerUserActionCallback(lpt);
