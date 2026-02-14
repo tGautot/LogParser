@@ -16,7 +16,7 @@ extern "C"{
 static char trash[TRASH_SIZE];
 
 FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, line_t checkpoint_dist) 
-  : m_max_chars_per_line(256), m_lf(lf), m_checkpoint_dist(checkpoint_dist){
+  : m_lf(lf), m_max_chars_per_line(256), m_checkpoint_dist(checkpoint_dist){
 
   m_is = std::ifstream(fname, std::ios::in);
   m_line_parser = Parser::fromLineFormat(m_lf);
@@ -177,9 +177,8 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
 
   if(m_curr_line >= stop_at_line) {LOG_EXIT(); return 0;}
 
-  line_t begin_line = m_curr_line;
   // TODO Binary search
-  int i = 0;
+  size_t i = 0;
   while(i < m_filtered_out_lines.size() && m_curr_line > m_filtered_out_lines[i].second){
     i++;
   }
@@ -258,7 +257,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   // Needs to at least be greater than m_checkpoint_dist to simplify some logic
   LOG_LOGENTRY(1, "FilteredFileReader::getPreviousValidLine");
   LOG_FCT(5, "Searching previous valid line from %lu\n", m_curr_line);
-  const size_t max_lines_stored = 3*m_checkpoint_dist;
+  //const size_t max_lines_stored = 3*m_checkpoint_dist;
 
   line_t& searched_from = m_cached_previous.searched_from;
   line_t& searched_to = m_cached_previous.searched_to;
@@ -393,7 +392,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
           LOG(1, "-----------------------------------------------\n");
           while(!valid_lines.empty()){
             // Free all our tmpdests
-            for(int i = 0; i < valid_lines.size(); i++){
+            for(size_t i = 0; i < valid_lines.size(); i++){
               LOG(1, "valid line id %d points to %p\n", i, valid_lines[i].raw_line.data());
             }
             LOG(1, "Freeing valid line %p\n", valid_lines.back().raw_line.data());

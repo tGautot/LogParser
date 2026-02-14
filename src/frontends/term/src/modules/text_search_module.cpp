@@ -3,6 +3,7 @@
 #include "log_parser_terminal.hpp"
 #include "terminal_modules.hpp"
 #include "terminal_state.hpp"
+#include <algorithm>
 #include <cstddef>
 #include <unistd.h>
 #include <utility>
@@ -31,7 +32,7 @@ static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward)
     // TODO Show user that we found no match
     // Or go around the file
   } else {
-    int vert_offset = state.nrows / 2 - 1;
+    size_t vert_offset = std::max(state.nrows / 2, 1) - 1;
     if(line_num > vert_offset){
       state.line_offset = line_num - vert_offset;
       state.cy = vert_offset;

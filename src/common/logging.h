@@ -7,7 +7,7 @@
 void logger_setup();
 void logger_teardown();
 
-void logger_set_file(char* filename);
+void logger_set_file(const char* filename);
 
 void logger_set_minlvl(uint8_t lvl);
 

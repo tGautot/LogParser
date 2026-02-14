@@ -16,8 +16,8 @@
 
 
 struct LineBlock {
-  cyclic_deque<char*> raw_lines;
   cyclic_deque<ProcessedLine> lines;
+  cyclic_deque<char*> raw_lines;
   // Line nu,ber are global (i.e. number in the file)
   line_t first_line_glbl_id, last_line_glbl_id;
   
@@ -51,10 +51,10 @@ typedef struct {
 
 class LogParserInterface {
 private:
+uint32_t block_size;
+line_t active_line=0, known_first_line=0, known_last_line=LINE_MAX;
   char* raw_line_storage;
   FilteredFileReader* ffr;
-  line_t active_line=0, known_first_line=0, known_last_line=LINE_MAX;
-  uint32_t block_size;
   LineBlock block;
 
   void print_lines_in_block();

@@ -1,5 +1,7 @@
 add_library(line_parsing)
 
+target_compile_options(line_parsing PRIVATE ${CMAKE_CXX_FLAGS_WARNINGS})
+
 target_sources(line_parsing
     PRIVATE 
         parsing_basics.cpp 

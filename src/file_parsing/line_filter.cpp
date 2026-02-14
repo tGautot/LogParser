@@ -128,7 +128,7 @@ bool LineFilter::str_passes(ParsedLine* pl){
   case FilterComparison::ENDS_WITH:
     {
       int sdelta = field_val.length() - val_str.length();
-      return (sdelta < 0) ? false : (field_val.find(val_str, sdelta) == sdelta);
+      return (sdelta < 0) ? false : (field_val.find(val_str, sdelta) == (size_t) sdelta);
     }
   default:
     throw new std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type STR");

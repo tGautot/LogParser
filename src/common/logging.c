@@ -18,7 +18,7 @@ static struct {
   uint8_t minlvl;
 } config = {NULL, 0};
 
-void logger_set_file(char* filename){
+void logger_set_file(const char* filename){
   FILE* fp = fopen(filename, "w+");
   if(fp == NULL){
     config.fp = stdout;

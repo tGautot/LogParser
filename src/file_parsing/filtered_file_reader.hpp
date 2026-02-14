@@ -13,8 +13,8 @@ class FilteredFileReader {
   LineFormat* m_lf;
   LineFilter* m_filter;
 public:
+const size_t m_max_chars_per_line;
   Parser* m_line_parser;
-  const size_t m_max_chars_per_line;
   bool m_accept_bad_format = true;
   
   std::ifstream m_is;

@@ -17,7 +17,7 @@ LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, LineF
   ffr = new FilteredFileReader(fname, fmt, fltr, 10);
   ProcessedLine pl;
   raw_line_storage = (char*) malloc(bsize * ffr->m_max_chars_per_line * sizeof(char));
-  uint32_t raw_data_offset = 0, nread, block_id = 0;
+  uint32_t nread, block_id = 0;
   while( (nread = ffr->getNextValidLine(raw_line_storage + ffr->m_max_chars_per_line*block_id, pl)) != 0){
     block.lines.push_back(pl);
     block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*block_id);
@@ -25,7 +25,6 @@ LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, LineF
     if(block_id == 0) known_first_line = block.lines[0].line_num;
     block_id++;
     if(block_id == block_size) break; 
-    raw_data_offset += nread;
   }
   block.lines.resize(block_id);
   block.flags = BLKFLG_IS_FIRST;
@@ -59,7 +58,7 @@ void LogParserInterface::clearFilter(){
 
 void LogParserInterface::print_lines_in_block(){
   printf("current block: flli: %lu - llli: %lu\n", block.first_line_local_id, block.first_line_local_id + block_size);
-  for(int i = 0; i < block_size; i++){
+  for(size_t i = 0; i < block_size; i++){
     printf("\t%s\n", block.lines[i].raw_line.data());
   }
 }

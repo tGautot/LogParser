@@ -1,5 +1,7 @@
 add_library(file_parsing)
 
+target_compile_options(file_parsing PRIVATE "${CMAKE_CXX_FLAGS_WARNINGS}")
+
 target_sources(file_parsing
     PRIVATE 
         log_parser_interface.cpp 

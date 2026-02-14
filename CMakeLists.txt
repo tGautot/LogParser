@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.21)
 
 project(LogParser VERSION 0.0)
 
+set(CMAKE_CXX_FLAGS_WARNINGS -Wall -Werror)
+
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_DIR ${CMAKE_SOURCE_DIR}/build)
 set(CMAKE_BINARY_DIR ${CMAKE_BUILD_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BUILD_DIR}/bin)

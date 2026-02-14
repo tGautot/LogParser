@@ -9,7 +9,7 @@ Parser* Parser::fromLineFormat(LineFormat* lfmt){
   p->format = lfmt;
   if(lfmt == nullptr) return p;
   LineField* lfield;
-  for(int i = 0; i < lfmt->fields.size(); i++){
+  for(size_t i = 0; i < lfmt->fields.size(); i++){
     lfield = lfmt->fields[i]; 
     if(lfield->ft == FieldType::INT){
       parse_instruction_t* int_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
@@ -42,7 +42,7 @@ Parser* Parser::fromLineFormat(LineFormat* lfmt){
 }
 
 Parser::~Parser(){
-  for(int i = 0; i < parsing_routine.size(); i++){
+  for(size_t i = 0; i < parsing_routine.size(); i++){
     free(parsing_routine[i]);
   }
 }

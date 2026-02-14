@@ -1,5 +1,7 @@
 add_executable(lp_term)
 
+target_compile_options(lp_term PRIVATE "${CMAKE_CXX_FLAGS_WARNINGS}")
+
 target_sources(lp_term
   PRIVATE 
     main.cpp

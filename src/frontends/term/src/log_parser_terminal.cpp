@@ -2,6 +2,7 @@
 #include "processed_line.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -22,7 +23,7 @@ extern "C"{
 
 
 
-int getCursorPosition(int *rows, int *cols) {
+int getCursorPosition(uint16_t *rows, uint16_t *cols) {
   char buf[32];
   unsigned int i = 0;
   if (write(STDOUT_FILENO, ESC_CMD "6n", 4) != 4) return -1;
@@ -35,11 +36,11 @@ int getCursorPosition(int *rows, int *cols) {
   printf("\r\n&buf[1]: '%s'\r\n", &buf[1]);
   
   if (buf[0] != '\x1b' || buf[1] != '[') return -1;
-  if (sscanf(&buf[2], "%d;%d", rows, cols) != 2) return -1;
+  if (sscanf(&buf[2], "%hd;%hd", rows, cols) != 2) return -1;
   return 0;
 }
 
-int getWindowSize(int *rows, int *cols) {
+int getWindowSize(uint16_t *rows, uint16_t *cols) {
   struct winsize ws;
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
     if (write(STDOUT_FILENO, ESC_CMD "999C" ESC_CMD "999B", 12) != 12) return -1;
@@ -146,7 +147,7 @@ void LogParserTerminal::drawRows(){
   std::string_view fetched_line;
   for(int i = 0; i < term_state.nrows-1; i++){
     const ProcessedLine* pl = term_state.displayed_pls[i];
-    int line_size = 0;
+
     if(pl != nullptr){
       fetched_line = pl->raw_line;
       std::string line_num_str = std::to_string(pl->line_num);
@@ -207,7 +208,7 @@ void LogParserTerminal::loop(){
     frame_str += ESC_CMD "H"; // Set cursor at top left position
     drawRows();
     if(term_state.input_mode == RAW){
-      snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.nrows, term_state.raw_input.length()+1);
+      snprintf(buf, 32, ESC_CMD "%d;%ldH", term_state.nrows, term_state.raw_input.length()+1);
     } else {
       snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.cy+1, term_state.cx+1);
     }

@@ -134,18 +134,18 @@ public:
       switch (lf->ft)
       {
       case FieldType::INT:
-        printf("{INT:%s}\n", name.data());
+        printf("{INT:%s}", name.data());
         break;
       case FieldType::DBL:
-        printf("{DBL:%s}\n", name.data());
+        printf("{DBL:%s}", name.data());
         break;
       case FieldType::CHR:
         lcf = dynamic_cast<LineChrField*>(lf);
-        printf("{CHR:%s,%c,%d}\n", name.data(), lcf->opt->target, lcf->opt->repeat);
+        printf("{CHR:%s,%c,%d}", name.data(), lcf->opt->target, lcf->opt->repeat);
         break;
       case FieldType::STR:
         lsf = dynamic_cast<LineStrField*>(lf);
-        printf("{STR:%s,%d,%c,%d}\n", name.data(), lsf->opt->stop_type, lsf->opt->delim, lsf->opt->nchar);
+        printf("{STR:%s,%d,%c,%d}", name.data(), lsf->opt->stop_type, lsf->opt->delim, lsf->opt->nchar);
         break;
       default:
         // TODO throw error
@@ -161,11 +161,6 @@ public:
     // {INT:time}-{STR:day} {DBL} [{STR:func}:{INT:linenum}] {STR:freetext}
     
     size_t idx = 0;
-
-
-    int STATE_FREE = 0;
-    int STATE_FIELD = 1;
-    int parse_state = STATE_FREE; 
 
     while(idx < fmt_str.size()){
       char c = fmt_str[idx];
