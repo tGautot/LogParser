@@ -8,7 +8,7 @@ void WasdModule::registerUserInputMapping(LogParserTerminal& term){
   term.registerUserInputMapping("a", ACTION_MOVE_LEFT);
 };
 void WasdModule::registerUserActionCallback(LogParserTerminal&) {
-  // This module doesn't handle any action
+  // This module doesn't handle any action, move_* actions are handled by default
 };
 
 void WasdModule::registerCommandCallback(LogParserTerminal&){

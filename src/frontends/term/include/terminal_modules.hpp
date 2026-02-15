@@ -27,6 +27,12 @@ class TextSearchModule : public LogParserTerminalModule {
   void registerUserActionCallback(LogParserTerminal&) override;
   void registerCommandCallback(LogParserTerminal&) override;
 };
+class VimQuitModule : public LogParserTerminalModule {
+  public:
+  void registerUserInputMapping(LogParserTerminal&) override;
+  void registerUserActionCallback(LogParserTerminal&) override;
+  void registerCommandCallback(LogParserTerminal&) override;
+};
 
 
 #endif

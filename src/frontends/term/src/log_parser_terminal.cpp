@@ -234,8 +234,9 @@ user_action_t LogParserTerminal::getUserAction(){
     if(term_state.input_mode == RAW){
       char c = readByte();
       LOG(5, "In raw mode and read char %d\n", c);
-      LOG(5, "Before applying char str is %s\n", term_state.raw_input.data());
+      //LOG(5, "Before applying char str is %s\n", term_state.raw_input.data());
       if(c == 13) { // <Enter>
+        LOG_FCT(3, "Sending command '%s' to modules.\n", term_state.raw_input.data());
         for(auto cmd_cb : command_cbs){
           cmd_cb(term_state.raw_input, term_state, lpi);
         }

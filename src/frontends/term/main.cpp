@@ -235,6 +235,7 @@ int main(int argc, char** argv){
   std::string filename = argv[1];
   LogParserTerminal lpt(filename);
   // TODO load modules on the fly based on config
+  // dlopen is fun, but should probably make python/lua bindings at some points
   CursorMoveModule cmm;
   cmm.registerUserInputMapping(lpt);
   cmm.registerUserActionCallback(lpt);
@@ -251,6 +252,11 @@ int main(int argc, char** argv){
   tsm.registerUserInputMapping(lpt);
   tsm.registerUserActionCallback(lpt);
   tsm.registerCommandCallback(lpt);
+
+  VimQuitModule vqm;
+  vqm.registerUserInputMapping(lpt);
+  vqm.registerUserActionCallback(lpt);
+  vqm.registerCommandCallback(lpt);
 
   lpt.loop();
   logger_teardown();

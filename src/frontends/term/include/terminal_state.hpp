@@ -10,7 +10,7 @@ enum InputMode {
   ACTION, RAW
 };
 
-typedef struct {
+typedef struct term_state_t {
   int cy, cx;
   uint16_t info_col_size = 0;
   uint64_t line_offset = 0, frame_num = 0;

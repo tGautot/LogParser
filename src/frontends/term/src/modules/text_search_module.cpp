@@ -1,6 +1,7 @@
 #include "common.hpp"
 #include "log_parser_interface.hpp"
 #include "log_parser_terminal.hpp"
+#include "processed_line.hpp"
 #include "terminal_modules.hpp"
 #include "terminal_state.hpp"
 #include <algorithm>
@@ -22,7 +23,9 @@ static std::string match_str = "";
 
 static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward){
   // TODO Handle case where cursor in "in the void" and this causes nullptr exception
-  line_t cursor_start_line = state.displayed_pls[state.cy]->line_num + (forward ? 1 : 0);
+  const ProcessedLine* start_line = (state.displayed_pls.size() <= (size_t) state.cy) ? state.displayed_pls.back() : state.displayed_pls[state.cy];
+  
+  line_t cursor_start_line = start_line->line_num + (forward ? 1 : 0);
   LOG(3, "Commanding next search to start at line %lu\n", cursor_start_line);
   std::pair<line_t, size_t> match_pos = lpi->findNextOccurence(match_str, cursor_start_line, forward);
   line_t line_num = match_pos.first;
@@ -68,7 +71,7 @@ void TextSearchModule::registerUserActionCallback(LogParserTerminal& term) {
 };
 void TextSearchModule::registerCommandCallback(LogParserTerminal& term){
   term.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int {
-    LOG_ENTRY("LAMBDA command callback search");
+    LOG_ENTRY("LAMBDA search module command callback search");
     size_t substr_pos = cmd.find(":?");
     LOG_FCT(3, "Full command is %s, found search query at pos %lu\n", cmd.data(), substr_pos);
     if(substr_pos == 0){

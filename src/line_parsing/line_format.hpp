@@ -155,6 +155,8 @@ public:
   }
 
   static LineFormat* fromFormatString(std::string fmt_str){
+    // TODO Improve...
+    
     LineFormat* lf = new LineFormat();
     
     // Fmt string might look something like this
