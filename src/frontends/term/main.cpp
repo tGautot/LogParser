@@ -258,6 +258,11 @@ int main(int argc, char** argv){
   vqm.registerUserActionCallback(lpt);
   vqm.registerCommandCallback(lpt);
 
+
+  FilterManagementModule fmm;
+  fmm.registerUserInputMapping(lpt);
+  fmm.registerUserActionCallback(lpt);
+  fmm.registerCommandCallback(lpt);
   lpt.loop();
   logger_teardown();
 }

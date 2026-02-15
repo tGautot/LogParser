@@ -35,4 +35,11 @@ class VimQuitModule : public LogParserTerminalModule {
 };
 
 
+class FilterManagementModule : public LogParserTerminalModule {
+  public:
+  void registerUserInputMapping(LogParserTerminal&) override;
+  void registerUserActionCallback(LogParserTerminal&) override;
+  void registerCommandCallback(LogParserTerminal&) override;
+};
+
 #endif

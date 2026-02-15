@@ -11,6 +11,7 @@ target_sources(lp_term
     src/modules/wasd_module.cpp
     src/modules/text_search_module.cpp
     src/modules/vim_quit_module.cpp
+    src/modules/filter_management_module.cpp
   PUBLIC 
     include/log_parser_terminal.hpp
     include/lp_terminal_module.hpp
