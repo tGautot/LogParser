@@ -8,6 +8,7 @@
 #include "filtered_file_reader.hpp"
 #include <climits>
 #include <cstdint>
+#include <memory>
 #include "cyclic_deque.hpp"
 
 #define BLKFLG_NONE 0
@@ -61,11 +62,13 @@ line_t active_line=0, known_first_line=0, known_last_line=LINE_MAX;
 
 public:
 
-  LogParserInterface(std::string fname, LineFormat* fmt, LineFilter* fltr, int bsize = 10000);
+  LogParserInterface(std::string fname, LineFormat* fmt, std::shared_ptr<LineFilter> fltr, int bsize = 10000);
   ~LogParserInterface();
 
   void setLineFormat(LineFormat* lf);
-  void setFilter(LineFilter* lf);
+  LineFormat* getLineFormat();
+  void setFilter(std::shared_ptr<LineFilter> lf);
+  std::shared_ptr<LineFilter> getFilter();
   void clearFilter();
 
   void setActiveLine(line_t line);

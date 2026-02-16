@@ -1,5 +1,6 @@
 #include "log_parser_interface.hpp"
 #include "common.hpp"
+#include "line_filter.hpp"
 #include "line_format.hpp"
 #include "logging.hpp"
 #include "processed_line.hpp"
@@ -7,11 +8,12 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <stdint.h>
 #include <string_view>
 
 
-LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, LineFilter* fltr,  int bsize) 
+LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, std::shared_ptr<LineFilter> fltr,  int bsize) 
   : block_size(bsize), active_line(0),block(bsize){
   LOG_LOGENTRY(5, "LogParserInterface::LogParserInterface");
   ffr = new FilteredFileReader(fname, fmt, fltr, 10);
@@ -48,8 +50,16 @@ void LogParserInterface::setLineFormat(LineFormat* lf){
   ffr->setFormat(lf);
 }
 
-void LogParserInterface::setFilter(LineFilter* lf){
+LineFormat* LogParserInterface::getLineFormat(){
+  return ffr->m_lf;
+}
+
+void LogParserInterface::setFilter(std::shared_ptr<LineFilter> lf){
   ffr->setFilter(lf);
+}
+
+std::shared_ptr<LineFilter> LogParserInterface::getFilter(){
+  return ffr->m_filter;
 }
 
 void LogParserInterface::clearFilter(){

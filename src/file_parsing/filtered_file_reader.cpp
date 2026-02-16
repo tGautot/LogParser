@@ -25,7 +25,7 @@ FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, line_
   m_curr_line = 0;
 }
 
-FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter, line_t checkpoint_dist)
+FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, std::shared_ptr<LineFilter> filter, line_t checkpoint_dist)
   : FilteredFileReader(fname, lf, checkpoint_dist){
   m_filter = filter;
 }
@@ -53,7 +53,7 @@ void FilteredFileReader::setFormat(LineFormat* format){
   m_lf = format;
 }
 
-void FilteredFileReader::setFilter(LineFilter* filter){
+void FilteredFileReader::setFilter(std::shared_ptr<LineFilter> filter){
   reset(false);
   m_filter = filter;
 }
@@ -111,6 +111,7 @@ size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
   // if line is "aaa\n" then "aaa\0" will be stored in s, but gcount still return 4
   s[max_chars-1] = 0;
   size_t nread = m_is.gcount();
+  // Reads until end-of-LINE and trahes everything
   while(!m_is.eof() && m_is.fail()){
     m_is.getline(trash, TRASH_SIZE);
   }
@@ -217,7 +218,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
     
     pl.set_data(m_curr_line-1, dest, nread, m_line_parser, line_stt);
     if( (m_accept_bad_format && !pl.well_formated) 
-        || m_filter == nullptr || m_filter->passes(pl.pl.get())){
+        || m_filter == nullptr || m_filter->passes(&pl)){
       
       if(fo_end > fo_begin){ // Since intervals are [incl; incl], could add new block on ">=", but let's not care about single lines
         addFilteredOutGroup(fo_begin, fo_end, i);

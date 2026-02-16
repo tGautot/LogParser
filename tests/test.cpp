@@ -163,7 +163,7 @@ TEST_CASE("Basic line filtering"){
   
   SECTION("Filter on int"){
     int64_t base_val = 85409;
-    LineFilter* filter = new LineFilter(lf, "Time", FilterComparison::GREATER_EQ, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Time", FilterComparison::GREATER_EQ, &base_val);
     int i = 1;
     while(std::getline(file, line)){
       bool success = parser->parseLine(line, pl);
@@ -174,12 +174,11 @@ TEST_CASE("Basic line filtering"){
       }
       i++;
     }
-    delete filter;
   }
 
   SECTION("Filter on string"){
     std::string base_val = "INFO";
-    LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
     int matches = 0;
     while(std::getline(file, line)){
       bool success = parser->parseLine(line, pl);
@@ -188,7 +187,6 @@ TEST_CASE("Basic line filtering"){
       }
     }
     REQUIRE( matches == 10 );
-    delete filter;
   }
 
   for(int i = 0;i < lf->fields.size(); i++){
@@ -237,7 +235,7 @@ TEST_CASE("Basic Filtered File Reader"){
   SECTION("Filter on string, forward"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
-    LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
     char* data =(char*)malloc(ffr.m_max_chars_per_line);
@@ -249,13 +247,12 @@ TEST_CASE("Basic Filtered File Reader"){
     }
     REQUIRE( count == 10);
     free(data);
-    delete filter;
   }
 
   SECTION("Filter on string, backwards"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
-    LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
     char* data = (char*)malloc(ffr.m_max_chars_per_line);
@@ -270,13 +267,12 @@ TEST_CASE("Basic Filtered File Reader"){
     }
     REQUIRE( count == -1);
     free(data);
-    delete filter;
   }
 
   SECTION("Filter on string, forward then backwards"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
-    LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
     char* data = (char*)malloc(ffr.m_max_chars_per_line);
@@ -293,13 +289,12 @@ TEST_CASE("Basic Filtered File Reader"){
     }
     REQUIRE( count == 0 );
     free(data);
-    delete filter;
   }
 
   SECTION("Filter on string, backwards then forward"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
-    LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
     ffr.setFilter(filter);
     
     char* data = (char*)malloc(ffr.m_max_chars_per_line);
@@ -321,7 +316,6 @@ TEST_CASE("Basic Filtered File Reader"){
     }
     REQUIRE( count == 10);
     free(data);
-    delete filter;
   }
   for(int i = 0;i < lf->fields.size(); i++){
     delete lf->fields[i];
@@ -337,7 +331,7 @@ TEST_CASE("Testing interface"){
   LineFormat* lf = getDefaultLineFormat();
   std::string filename = TEST_FOLDER "data/sample.log"; 
   std::string base_val = "INFO";
-  LineFilter* filter = new LineFilter(lf, "Level", FilterComparison::EQUAL, &base_val);
+  std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
   LogParserInterface lpi(filename, lf, filter, 4);
   
   std::srand(std::time({}));
@@ -353,6 +347,5 @@ TEST_CASE("Testing interface"){
     delete lf->fields[i];
   }
   delete lf;
-  delete filter;
   teardown();
 }

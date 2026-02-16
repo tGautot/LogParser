@@ -29,7 +29,7 @@ int main(int argc, char** argv){
   Parser* parser = Parser::fromLineFormat(lf);
  
   char* trace_level = "TRACE";
-  LineFilter loglevel_filter(lf, "Level", FilterComparison::EQUAL, (void*)(&trace_level), false);
+  FieldFilter loglevel_filter(lf, "Level", FilterComparison::EQUAL, (void*)(&trace_level));
 
   std::ifstream file(argv[1]);
   std::string line;

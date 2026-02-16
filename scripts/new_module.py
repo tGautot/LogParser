@@ -28,6 +28,7 @@ void MODULE_NAME::registerUserActionCallback(LogParserTerminal&) {}
 void MODULE_NAME::registerCommandCallback(LogParserTerminal& lpt) {
   lpt.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int{
     // TODO, check for the command you want to handle here (e.g cmd.find(":my_cmd") == 0)
+    return 0;
   });
 }
 """

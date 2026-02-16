@@ -21,10 +21,10 @@ class ParsedLine {
   ParsedLine(ParsedLine&& old);
   ~ParsedLine();
 
-  int64_t* getIntField(int id){ return int_fields + id; }
-  double* getDblField(int id){ return dbl_fields + id; }
-  char* getChrField(int id){ return chr_fields + id; }
-  std::string_view* getStrField(int id){ return str_fields + id; }
+  int64_t* getIntField(int id) const { return int_fields + id; }
+  double* getDblField(int id) const { return dbl_fields + id; }
+  char* getChrField(int id) const { return chr_fields + id; }
+  std::string_view* getStrField(int id) const { return str_fields + id; }
 
   void asStringToStream(std::ostream& os, LineFormat& fmt);
 };

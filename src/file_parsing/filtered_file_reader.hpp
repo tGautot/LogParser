@@ -8,12 +8,13 @@
 #include "processed_line.hpp"
 
 #include <deque>
+#include <memory>
 
 class FilteredFileReader {
-  LineFormat* m_lf;
-  LineFilter* m_filter;
 public:
-const size_t m_max_chars_per_line;
+  LineFormat* m_lf;
+  std::shared_ptr<LineFilter> m_filter;
+  const size_t m_max_chars_per_line;
   Parser* m_line_parser;
   bool m_accept_bad_format = true;
   
@@ -36,13 +37,13 @@ const size_t m_max_chars_per_line;
 
 // Main public interface
   FilteredFileReader(std::string& fname, LineFormat* lf, line_t checkpoint_dist = 1000);
-  FilteredFileReader(std::string& fname, LineFormat* lf, LineFilter* filter, line_t checkpoint_dist = 1000);
+  FilteredFileReader(std::string& fname, LineFormat* lf, std::shared_ptr<LineFilter> filter, line_t checkpoint_dist = 1000);
 
   ~FilteredFileReader();
 
   void reset(bool checkpoints_also = false);
   void setFormat(LineFormat* format);
-  void setFilter(LineFilter* filter);
+  void setFilter(std::shared_ptr<LineFilter> filter);
 
   size_t getMaxCharsPerLine() { return m_max_chars_per_line; }
 
