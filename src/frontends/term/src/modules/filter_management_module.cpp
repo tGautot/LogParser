@@ -146,7 +146,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
     }
 
     if(cmd.find(":f ") == 0 || cmd.find(":fadd ") == 0 || cmd.find(":fand ") == 0 ||
-        cmd.find(":for ") == 0 || cmd.find(":fxor ") == 0 || cmd.find(":fnor ") == 0){
+        cmd.find(":for ") == 0 || cmd.find(":fxor ") == 0 || cmd.find(":fnor ") == 0 || cmd.find(":fout ") == 0){
       std::shared_ptr<LineFilter> old_filter = lpi->getFilter();
       if(old_filter == nullptr) {
         lpi->setFilter(filter);
@@ -161,7 +161,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
         new_filter = std::make_shared<CombinedFilter>(old_filter, filter, XOR);
       } else if(cmd.find(":fnor ") == 0){
         new_filter = std::make_shared<CombinedFilter>(old_filter, filter, NOR);
-      } else if(cmd.find(":fout " == 0)){
+      } else if(cmd.find(":fout ") == 0){
         // Filter OUT, we don't want to see the lines passing that filter
         filter->invert();
         new_filter = std::make_shared<CombinedFilter>(old_filter, filter, AND);

@@ -12,7 +12,7 @@
 CombinedFilter::CombinedFilter(std::shared_ptr<LineFilter> left, std::shared_ptr<LineFilter> right, BitwiseOp op)
   : left_filter(left), right_filter(right), op(op){}
 
-bool CombinedFilter::_passes(const ProcessedLine* pl){ return pl->pl.get(); }
+bool CombinedFilter::_passes(const ProcessedLine* pl){ return _passes(pl->pl.get()); }
 
 bool CombinedFilter::_passes(const ParsedLine* pl) {
   bool left_ok = left_filter->passes(pl);
@@ -214,7 +214,7 @@ bool FieldFilter::str_passes(const ParsedLine* pl){
   return false;
 }
 
-bool FieldFilter::_passes(const ProcessedLine* pl){ return pl->pl.get(); }
+bool FieldFilter::_passes(const ProcessedLine* pl){ return _passes(pl->pl.get()); }
 
 bool FieldFilter::_passes(const ParsedLine* pl){
   return (this->*pass_fn)(pl);
@@ -224,7 +224,7 @@ bool LineNumberFilter::_passes(const ProcessedLine* pl){
   return pl->line_num >= line_from && pl->line_num <= line_to;
 }
 
- bool LineNumberFilter::_passes(const ParsedLine* pl){
+ bool LineNumberFilter::_passes(const ParsedLine* /* unused*/){
   // TODO maybe split interface instead of having this ugly throw;
   throw std::runtime_error("_passes(ParsedLine) called on LineNumberFilter");
 }
