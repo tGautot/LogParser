@@ -235,12 +235,13 @@ TEST_CASE("Basic Filtered File Reader"){
   SECTION("Filter on string, forward"){
     ffr.m_accept_bad_format = false;
     std::string base_val = "INFO";
-    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, base_val);
     ffr.setFilter(filter);
     
     char* data =(char*)malloc(ffr.m_max_chars_per_line);
     int count = 0;
     while(ffr.getNextValidLine(data, pl) != 0){
+      std::cout << "Got next valid line: " << data << std::endl; 
       REQUIRE ( pl.line_num == count_to_info_line(count));
       count++;
 

@@ -111,8 +111,8 @@ parse_start:
 void FilterManagementModule::registerUserInputMapping(LogParserTerminal&){}
 void FilterManagementModule::registerUserActionCallback(LogParserTerminal&) {}
 void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
-  lpt.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int{
-    if(cmd.find(":fclear") == 0){
+  lpt.registerCommandCallback([](std::string& full_cmd, term_state_t& state, LogParserInterface* lpi) -> int{
+    if(full_cmd.find(":fclear") == 0){
       lpi->clearFilter();
       return 0;
     }
@@ -121,32 +121,36 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
     if(lf == nullptr){
       throw std::runtime_error("Cannot set format without having specified a line format");
     }
+    size_t space_pos = full_cmd.find(" ");
+    std::string cmd = full_cmd.substr(0, space_pos);
 
-    std::string filter_str = "";
+    if(cmd == ":fset" || cmd == ":f" || cmd == ":fadd" || cmd == ":fand" ||
+        cmd == ":for" || cmd == ":fxor" || cmd == ":fnor" || cmd == ":fout"){
+      
+      std::string filter_str = "";
 
-    size_t arg_start = cmd.find(" "); 
-    while(arg_start < cmd.size() && std::isspace(cmd[arg_start])){arg_start++;};
-    if(arg_start < cmd.size()){
-      std::ifstream file(cmd.data() + arg_start);
-      if(file.is_open() && file.good()){
-        getline(file, filter_str);
+      size_t arg_start = space_pos; 
+      while(arg_start < cmd.size() && std::isspace(cmd[arg_start])){arg_start++;};
+      if(arg_start < cmd.size()){
+        std::ifstream file(cmd.data() + arg_start);
+        if(file.is_open() && file.good()){
+          getline(file, filter_str);
+        } else {
+          filter_str = cmd.data() + arg_start;
+        }
       } else {
-        filter_str = cmd.data() + arg_start;
+        throw std::runtime_error("Expecting a second argument");
       }
-    } else {
-      // TODO not correct logic here, need to check that we are indeed in one of this module's command
-      throw std::runtime_error("Expecting a second argument");
-    }
 
-    std::shared_ptr<LineFilter> filter = parse_filter_decl(filter_str, lf);
+      std::shared_ptr<LineFilter> filter = parse_filter_decl(filter_str, lf);
 
 
-    if(cmd.find(":fset ") == 0){
-      lpi->setFilter(filter);
-    }
-
-    if(cmd.find(":f ") == 0 || cmd.find(":fadd ") == 0 || cmd.find(":fand ") == 0 ||
-        cmd.find(":for ") == 0 || cmd.find(":fxor ") == 0 || cmd.find(":fnor ") == 0 || cmd.find(":fout ") == 0){
+      if(cmd.find(":fset ") == 0){
+        lpi->setFilter(filter);
+      }
+      
+      
+      
       std::shared_ptr<LineFilter> old_filter = lpi->getFilter();
       if(old_filter == nullptr) {
         lpi->setFilter(filter);

@@ -219,7 +219,6 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
     pl.set_data(m_curr_line-1, dest, nread, m_line_parser, line_stt);
     if( (m_accept_bad_format && !pl.well_formated) 
         || m_filter == nullptr || m_filter->passes(&pl)){
-      LOG_FCT(5, "m_accept_bad_format=%d !pl.well_formated=%d m_filter=%p passes=%d\n", m_accept_bad_format, !pl.well_formated, m_filter.get(), m_filter->passes(&pl));
       if(fo_end > fo_begin){ // Since intervals are [incl; incl], could add new block on ">=", but let's not care about single lines
         addFilteredOutGroup(fo_begin, fo_end, i);
       }
