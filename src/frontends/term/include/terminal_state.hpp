@@ -11,11 +11,11 @@ enum InputMode {
 };
 
 typedef struct term_state_t {
-  int cy, cx;
-  uint16_t info_col_size = 0;
+  int cy, cx; // Cursor position on the screen (0-indexed)
+  uint16_t info_col_size = 0; // num of cols to display linenum + decorator
   uint64_t line_offset = 0, frame_num = 0;
   uint64_t current_action_multiplier = 1;
-  uint16_t nrows, ncols;
+  uint16_t nrows, ncols; // Number of displayed rows/cols (size of display - offsets)
   InputMode input_mode;
   std::string raw_input;
   bool reached_eof = false;
