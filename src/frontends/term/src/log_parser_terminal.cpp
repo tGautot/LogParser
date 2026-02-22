@@ -21,6 +21,24 @@ extern "C"{
 #define CLEAR_SCREEN() write(STDOUT_FILENO, ESC_CMD "2J", 4);
 #define CURSOR_TL() write(STDOUT_FILENO, ESC_CMD "H", 3);
 
+#define FG_BLACK "30"
+#define FG_RED "31"
+#define FG_GREEN "32"
+#define FG_YELLOW "33"
+#define FG_BLUE "34"
+#define FG_PURPLE "35"
+#define FG_CYAN "36"
+#define FG_LIGHT_GREY "37"
+
+#define BG_BLACK "40"
+#define BG_RED "41"
+#define BG_GREEN "42"
+#define BG_YELLOW "43"
+#define BG_BLUE "44"
+#define BG_PURPLE "45"
+#define BG_CYAN "46"
+#define BG_LIGHT_GREY "47"
+
 
 
 int getCursorPosition(uint16_t *rows, uint16_t *cols) {
@@ -117,7 +135,8 @@ LineFormat* lf = new LineFormat();
   lpi = new LogParserInterface(filename, lf, nullptr);
   setupTerm(term_state);
   atexit(rollbackTerm);
-  term_state.cx = term_state.cy = 0;
+  term_state.cx = 4;
+  term_state.cy = 0;
   term_state.input_mode = InputMode::ACTION;
   term_state.raw_input = "";
 }
@@ -134,9 +153,13 @@ void LogParserTerminal::registerCommandCallback(CommandCallbackPtr cmd_cb){
   command_cbs.push_back(cmd_cb);
 }
 
+bool LogParserTerminal::isCursorOnLastLine(){
+  return (term_state.cy + term_state.line_offset == lpi->known_last_line);
+}
+
 void LogParserTerminal::drawRows(){
   LOG_ENTRY("LogParserTerminal::drawRows");
-  frame_str += ESC_CMD "K";
+  //frame_str += ESC_CMD "K";
   term_state.displayed_pls.clear();
   for(int i = 0; i < term_state.nrows-1; i++){
     line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
@@ -146,7 +169,7 @@ void LogParserTerminal::drawRows(){
   
   // Render file lines
   std::string_view fetched_line;
-  for(int i = 0; i < term_state.nrows-1; i++){
+  for(int i = 0; i < term_state.nrows-term_state.num_status_line; i++){
     const ProcessedLine* pl = term_state.displayed_pls[i];
     if(pl != nullptr){
       fetched_line = pl->raw_line;
@@ -156,7 +179,7 @@ void LogParserTerminal::drawRows(){
       if(line_num_str.size()+2 < term_state.info_col_size) {
         frame_str += std::string(term_state.info_col_size - line_num_str.size() - 2, ' ');
       }
-      frame_str += line_num_str + "~ ";
+      frame_str += "\033[" FG_LIGHT_GREY "m" + line_num_str + "~ " "\033[0m";
 
       std::string formatted_line = std::string(fetched_line);
       size_t match_pos = 0;
@@ -179,9 +202,6 @@ void LogParserTerminal::drawRows(){
     }
     
     frame_str += "\r\n";
-    if(pl == nullptr){
-      term_state.reached_eof = true;
-    }
   }
   
   char buf[81];

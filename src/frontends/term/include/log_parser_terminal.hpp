@@ -36,6 +36,8 @@ public:
   void registerActionCallback(ActionCallbackPtr action_cb);
   void registerCommandCallback(CommandCallbackPtr command_cb);
 
+  bool isCursorOnLastLine();
+
   user_action_t getUserAction();
   void handleUserAction(user_action_t action);
 
