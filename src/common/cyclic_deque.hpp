@@ -1,28 +1,29 @@
 #ifndef CYCLIC_DEQUE_HPP
 #define CYCLIC_DEQUE_HPP
 
+#include <algorithm>
 #include <cstddef>
 
-#define CYCLIC_INCR(x) x = (x+1)%n
-#define CYCLIC_DECR(x) x = (x==0) ? n-1 : x-1
+#define CYCLIC_INCR(x) x = (x+1)%_size
+#define CYCLIC_DECR(x) x = (x==0) ? _size-1 : x-1
 
 template <typename T>
 class cyclic_deque {
 private:
   T* _storage;
-  size_t n;
-  size_t _elem_count;
+  size_t _size; // Maximum allowed number of elements in the _storage
+  size_t _elem_count; // Number of elements populated
   size_t _front_id, _back_id;
 public:
-  cyclic_deque(size_t size) :n(size), _elem_count(0){
-    _storage = new T[n];
-    _back_id = n/2;
-    _front_id = (_back_id + 1) % n;
+  cyclic_deque(size_t size) : _size(size), _elem_count(0){
+    _storage = new T[_size];
+    _back_id = 0;
+    _front_id = 1 % _size;
   }
   cyclic_deque(cyclic_deque&& tomove){
     _storage = tomove._storage;
     tomove._storage = nullptr;
-    n = tomove.n;
+    _size = tomove._size;
     _elem_count = tomove._elem_count;
     _front_id = tomove._front_id;
     _back_id = tomove._back_id;
@@ -32,17 +33,18 @@ public:
   }
 
   bool empty(){ return _elem_count==0; }
-  bool full(){ return _elem_count==n; }
+  bool full(){ return _elem_count==_size; }
   size_t size(){ return _elem_count; }
-  size_t max_size(){ return n; }
+  size_t max_size(){ return _size; }
 
   size_t getFrontId(){ return _front_id; }
   size_t getBackId(){ return _back_id; }
 
-  void resize(const size_t& s){
-    size_t size_before = size();
-    _elem_count = (s > n) ? n : s; 
-    _back_id = (_back_id + (_elem_count - size_before)) % n;
+  void clear(){
+    _elem_count = 0;
+    
+    _back_id = 0;
+    _front_id = 1 % _size;
   }
 
   T& front(){ return _storage[_front_id]; }
@@ -95,7 +97,7 @@ public:
       printf("Trying to get cyclic deque id %lu but is of size %lu\n", id, size());
       throw 0;
     }
-    return _storage[ (_front_id+id)%n ];
+    return _storage[ (_front_id+id)%_size ];
   }
 };
 

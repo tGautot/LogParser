@@ -60,16 +60,17 @@ line_t active_line=0, known_first_line=0;
 
   void print_lines_in_block();
 
+  void reset_and_refill_block(line_t around_global_line);
+
 public:
   line_t known_last_line=LINE_MAX;
   LogParserInterface(std::string fname, LineFormat* fmt, std::shared_ptr<LineFilter> fltr, int bsize = 10000);
   ~LogParserInterface();
 
-  void setLineFormat(LineFormat* lf);
+  void setLineFormat(LineFormat* lf, line_t global_ancore_line);
   LineFormat* getLineFormat();
-  void setFilter(std::shared_ptr<LineFilter> lf);
+  void setFilter(std::shared_ptr<LineFilter> lf, line_t global_ancore_line = 1);
   std::shared_ptr<LineFilter> getFilter();
-  void clearFilter();
 
   void setActiveLine(line_t line);
   void deltaActiveLine(int64_t delta);

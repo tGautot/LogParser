@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <stdio.h>
 
+#include "logging.hpp"
 
 // Trim from the start (in place)
 inline void ltrim(std::string &s) {
@@ -29,7 +30,7 @@ inline void trim(std::string &s) {
 }
 
 #define CHECK_FOR_TAG(cmp_txt, code_op) \
-  v = s.find_first_of(cmp_txt, start_pos); \
+  v = s.find(cmp_txt, start_pos); \
   if(v < ans){ \
     ans = v; op = code_op; \
   } 
@@ -111,9 +112,9 @@ parse_start:
 void FilterManagementModule::registerUserInputMapping(LogParserTerminal&){}
 void FilterManagementModule::registerUserActionCallback(LogParserTerminal&) {}
 void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
-  lpt.registerCommandCallback([](std::string& full_cmd, term_state_t& state, LogParserInterface* lpi) -> int{
-    if(full_cmd.find(":fclear") == 0){
-      lpi->clearFilter();
+  lpt.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int{
+    if(cmd.find(":fclear") == 0){
+      lpi->setFilter(nullptr);
       return 0;
     }
 
@@ -121,16 +122,20 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
     if(lf == nullptr){
       throw std::runtime_error("Cannot set format without having specified a line format");
     }
-    size_t space_pos = full_cmd.find(" ");
-    std::string cmd = full_cmd.substr(0, space_pos);
+    size_t space_pos = cmd.find_first_of(" ");
+    std::string short_cmd = cmd.substr(0, space_pos);
 
-    if(cmd == ":fset" || cmd == ":f" || cmd == ":fadd" || cmd == ":fand" ||
-        cmd == ":for" || cmd == ":fxor" || cmd == ":fnor" || cmd == ":fout"){
+    if(short_cmd == ":fset" || short_cmd == ":f" || short_cmd == ":fadd" || short_cmd == ":fand" ||
+        short_cmd == ":for" || short_cmd == ":fxor" || short_cmd == ":fnor" || short_cmd == ":fout"){
       
       std::string filter_str = "";
 
       size_t arg_start = space_pos; 
-      while(arg_start < cmd.size() && std::isspace(cmd[arg_start])){arg_start++;};
+      LOG(5, "arg_start=%d, cmd.size()=%d, std::isspace=%d\n", arg_start, cmd.size(), std::isspace(cmd[arg_start]));
+      while(arg_start < cmd.size() && std::isspace(cmd[arg_start])){
+        LOG(5, "arg_start=%d, cmd.size()=%d, std::isspace=%d\n", arg_start, cmd.size(), std::isspace(cmd[arg_start]));
+        arg_start++;};
+      LOG(5, "arg_start=%d, cmd.size()=%d, std::isspace=%d\n", arg_start, cmd.size(), std::isspace(cmd[arg_start]));
       if(arg_start < cmd.size()){
         std::ifstream file(cmd.data() + arg_start);
         if(file.is_open() && file.good()){
@@ -147,6 +152,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
 
       if(cmd.find(":fset ") == 0){
         lpi->setFilter(filter);
+        return 0;
       }
       
       
@@ -170,7 +176,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
         filter->invert();
         new_filter = std::make_shared<CombinedFilter>(old_filter, filter, AND);
       }
-      lpi->setFilter(filter);
+      lpi->setFilter(new_filter);
     }    
     return 0;
   });

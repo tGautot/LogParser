@@ -12,7 +12,7 @@ void VimQuitModule::registerUserActionCallback(LogParserTerminal&) {}
 void VimQuitModule::registerCommandCallback(LogParserTerminal& lpt) {
   lpt.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int{
     LOG_ENTRY("LAMBDA VimQuitModule");
-    LOG_FCT(5, "Cmd is %s, match=%ld", cmd.data(), cmd.find(":q")); 
+    LOG_FCT(5, "Cmd is %s, match=%ld\n", cmd.data(), cmd.find(":q")); 
     if(cmd.find(":q") == 0) {
       exit(0);
     }
