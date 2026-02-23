@@ -228,3 +228,14 @@ bool LineNumberFilter::_passes(const ProcessedLine* pl){
   // TODO maybe split interface instead of having this ugly throw;
   throw std::runtime_error("_passes(ParsedLine) called on LineNumberFilter");
 }
+
+RawLineFilter::RawLineFilter(std::string& s) : must_contain(s){}
+
+bool RawLineFilter::_passes(const ProcessedLine* pl){ 
+  return pl->raw_line.find(must_contain) != std::string::npos;
+}
+
+ bool RawLineFilter::_passes(const ParsedLine* /* unused*/){
+  // TODO maybe split interface instead of having this ugly throw;
+  throw std::runtime_error("_passes(ParsedLine) called on LineNumberFilter");
+}
