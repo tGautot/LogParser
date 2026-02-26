@@ -6,15 +6,17 @@
 #include "processed_line.hpp"
 
 #include <cassert>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <stdexcept>
 #include <stdint.h>
 #include <string_view>
 
 
 LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, std::shared_ptr<LineFilter> fltr,  int bsize) 
-  : block_size(bsize), active_line(0), block(bsize){
+  : block_size(bsize), block(bsize){
   LOG_LOGENTRY(5, "LogParserInterface::LogParserInterface");
   ffr = new FilteredFileReader(fname, fmt, fltr, 10);
   ProcessedLine pl;
@@ -25,13 +27,14 @@ LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, std::
     block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*line_local_id);
     LOG_FCT(5, "Read %d bytes, line is %s\n", nread, block.lines.back().raw_line.data());
     if(line_local_id == 0) known_first_line = block.lines[0].line_num;
+    if(line_local_id % 100 == 0 && line_local_id/100 >= local_to_global_id.size()){
+      local_to_global_id.push_back(pl.line_num);
+    }
     line_local_id++;
     if(line_local_id == block_size) break; 
   }
   block.flags = BLKFLG_IS_FIRST;
   block.first_line_local_id = 0;
-  block.first_line_glbl_id = block.lines.front().line_num;
-  block.last_line_glbl_id = block.lines.back().line_num;
   // Special case where first block is first and also last
   if(line_local_id != block_size) {
     block.flags |= BLKFLG_IS_LAST;
@@ -54,16 +57,22 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
   bool found_anchor =  false;
   ProcessedLine pl;
   uint32_t nread, line_local_id = 0, lines_left = block_size/2;
+  ffr->goToLine(0);
   while( lines_left > 0  && 
       (nread = ffr->getNextValidLine(raw_line_storage + ffr->m_max_chars_per_line*(line_local_id%block_size), pl)) != 0){
     block.lines.push_back(pl);
-    block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*line_local_id);
+    block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*(line_local_id%block_size));
     LOG_FCT(5, "Read %d bytes, line is %s\n", nread, block.lines.back().raw_line.data());
     if(line_local_id == 0) known_first_line = block.lines[0].line_num;
+    if(line_local_id % 100 == 0 && line_local_id/100 >= local_to_global_id.size()){
+      local_to_global_id.push_back(pl.line_num);
+    }
     line_local_id++;
     found_anchor = pl.line_num > around_global_line;
     if(found_anchor){ lines_left--; }
   }
+  block.flags = BLKFLG_IS_FIRST;
+  block.first_line_local_id = 0;
 
   if(nread == 0){
     block.flags |= BLKFLG_IS_LAST;
@@ -75,6 +84,7 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
 void LogParserInterface::setLineFormat(LineFormat* lf, line_t global_ancore_line){
   ffr->setFormat(lf);
   reset_and_refill_block(global_ancore_line);
+  local_to_global_id.clear();
 }
 
 LineFormat* LogParserInterface::getLineFormat(){
@@ -84,6 +94,7 @@ LineFormat* LogParserInterface::getLineFormat(){
 void LogParserInterface::setFilter(std::shared_ptr<LineFilter> lf, line_t global_ancore_line){
   ffr->setFilter(lf);
   reset_and_refill_block(global_ancore_line);
+  local_to_global_id.clear();
 }
 
 std::shared_ptr<LineFilter> LogParserInterface::getFilter(){
@@ -157,6 +168,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   uint32_t nread;
   int block_offset = block_size/10;
   int i = block_offset;
+  line_t block_last_line_local_id = block.first_line_local_id + block.lines.size() - 1;
   bool got_req_line =false;
   ffr->goToPosition(block.lines.back().stt_pos, block.lines.back().line_num);
   ffr->skipNextRawLines(1);
@@ -164,6 +176,16 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
     block.raw_lines.push_back(block.raw_lines.front());
     block.lines.push_back(block.lines.front());
     block.first_line_local_id++;
+    
+    block_last_line_local_id++;
+    if(block_last_line_local_id % 100 == 0){
+      if(block_last_line_local_id/100 > local_to_global_id.size()){
+        throw std::runtime_error("Missed a local<->global mapping");
+      }
+      if(block_last_line_local_id/100 == local_to_global_id.size())
+        local_to_global_id.push_back(block.lines.back().line_num);
+    }
+
     block.flags &= ~BLKFLG_IS_FIRST;
     got_req_line = got_req_line || (block.first_line_local_id + block_size - 1 == local_line_id);
     if(got_req_line){
@@ -177,6 +199,165 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   }
   return getLine(local_line_id);
 }
+
+line_t LogParserInterface::getLineGlobalIdLowerbound(line_t local_line_id){
+  size_t idx = local_line_id/100;
+  if(idx >= local_to_global_id.size()) return local_to_global_id.back();
+  return local_to_global_id[idx];
+}
+line_t LogParserInterface::getLineGlobalIdUpperbound(line_t local_line_id){
+  size_t idx = local_line_id/100+1;
+  if(idx >= local_to_global_id.size()) return LINE_MAX;
+  return local_to_global_id[idx];
+
+}
+
+void LogParserInterface::jumpToLocalLine(line_t local_line_id){
+  line_t block_last_line = block.first_line_local_id + block_size;
+  if(local_line_id >= block.first_line_local_id && local_line_id <= block_last_line){
+    // Already in block
+    return;
+  }
+
+  line_t around_line;
+
+  if(local_line_id < block.first_line_local_id){
+    if(block.first_line_local_id - local_line_id < block_size){
+      // Go there step by step, that way the block will be already correctly populated
+      getLine(local_line_id);
+      return;
+    }
+    // Line is too far above in the file
+    // But since it is _above_, we must have gone there already and thus know the lower bound
+    around_line = getLineGlobalIdLowerbound(local_line_id);
+    
+  } else { // local > last line of block
+    if(local_line_id - block_last_line < block_size){
+      getLine(local_line_id);
+      return;
+    }
+
+    // Line is later in the file
+    // Maybe we already saw it, in which case we probably know an upperbound,
+    // If not, it means we never saw it, and we need to go there sequentially
+    line_t ub = getLineGlobalIdUpperbound(local_line_id);
+    if(ub == LINE_MAX){  // Unkown best we can do is go as far as we explored, and walk from there    
+      line_t lb = getLineGlobalIdLowerbound(local_line_id);
+      line_t start_local_line = local_line_id - (local_line_id%100);
+      
+      block.lines.clear();
+      block.raw_lines.clear();
+      
+      bool found_line =  false;
+      ProcessedLine pl;
+      uint32_t nread, last_read_local_id = start_local_line, lines_left = block_size/2;
+      ffr->goToLine(lb);
+      while( lines_left > 0  && 
+          (nread = ffr->getNextValidLine(raw_line_storage + ffr->m_max_chars_per_line*(last_read_local_id%block_size), pl)) != 0){
+        block.lines.push_back(pl);
+        block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*(last_read_local_id%block_size));
+        if(last_read_local_id == 0) known_first_line = block.lines[0].line_num;
+        if(last_read_local_id % 100 == 0 && last_read_local_id/100 >= local_to_global_id.size()){
+          local_to_global_id.push_back(pl.line_num);
+        }
+        last_read_local_id++;
+        found_line = pl.line_num > local_line_id;
+        if(found_line){ lines_left--; }
+      }
+
+      if(nread == 0){
+        known_last_line = block.lines.back().line_num;
+        block.flags |= BLKFLG_IS_LAST;
+      }
+
+      if(!block.lines.full()){ // Wasn't too far from lower bound, and found it without filling whole block
+        ffr->goToLine(lb);
+        lines_left = block_size-block.lines.size();
+        last_read_local_id = start_local_line-1;
+        while( lines_left > 0  && 
+            (nread = ffr->getPreviousValidLine(raw_line_storage + ffr->m_max_chars_per_line*(last_read_local_id%block_size), pl)) != 0){
+          block.lines.push_front(pl);
+          block.raw_lines.push_front(raw_line_storage + ffr->m_max_chars_per_line*(last_read_local_id%block_size));
+          if(last_read_local_id == 0) known_first_line = block.lines[0].line_num;
+          last_read_local_id--;
+          lines_left--;
+        }
+      }
+
+      if(nread == 0){
+        known_last_line = block.lines.front().line_num;
+        block.flags |= BLKFLG_IS_FIRST;
+      }
+
+      return;
+
+
+
+    } else {
+      around_line = ub;
+    }
+  }
+
+  jumpToGlobalLine(around_line);
+
+}
+
+void LogParserInterface::jumpToGlobalLine(line_t global_line_id){
+  if(block.lines.front().line_num >= global_line_id && block.lines.back().line_num <= global_line_id){
+    return;
+  }
+  
+  block.lines.clear();
+  block.raw_lines.clear();
+  bool finished = false, no_more_above = false, no_more_below = false;
+  size_t segment_lines_left = block_size/2;
+  size_t  nread = 0;
+  size_t line_storage_id = 0;
+  ProcessedLine pl;
+
+  ffr->goToLine(global_line_id);
+read_backwards:
+  while( segment_lines_left > 0  && 
+      (nread = ffr->getPreviousValidLine(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id, pl)) != 0){
+    block.lines.push_back(pl);
+    block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id);
+    line_storage_id++;
+    segment_lines_left--;
+  }
+  no_more_above = nread == 0;
+  segment_lines_left = block_size - line_storage_id;
+  finished = (line_storage_id == block_size) || no_more_below;
+  if(finished) goto done;
+  ffr->goToLine(global_line_id);
+read_forward:
+  while( segment_lines_left > 0  && 
+      (nread = ffr->getNextValidLine(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id, pl)) != 0){
+    block.lines.push_back(pl);
+    block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id);
+    line_storage_id++;
+    segment_lines_left--;
+  }
+  no_more_below = nread == 0;
+  segment_lines_left = block_size - line_storage_id;
+  finished = (line_storage_id == block_size) || (no_more_above && no_more_below);
+  if(finished) goto done;
+
+  // Not finished, either
+  // Could read half block above, but not below (try again, above)
+  // OR
+  // Could read half block below, but not above (try again, below)
+  // OR
+  // Could not read half block in either direction (doomed, should never happen as file fits into 1 block)
+
+  if(no_more_below && !no_more_above) goto read_backwards;
+  if(no_more_above && !no_more_below) goto read_forward;
+  
+
+done:
+
+  return;
+}
+
 
 /*
 void LogParserInterface::setActiveLine(line_t l){

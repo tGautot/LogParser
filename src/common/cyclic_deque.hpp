@@ -62,11 +62,35 @@ public:
     }
   }
 
+  // Just move back/front pointer
+  void push_back(){
+    bool full_before = full();
+    
+    CYCLIC_INCR(_back_id);
+    _elem_count++;
+    if(full_before){
+      _elem_count--;
+      CYCLIC_INCR(_front_id);
+    }
+  }
+
   void push_front(const T& e){
     bool full_before = full();
 
     CYCLIC_DECR(_front_id);
     _storage[_front_id] = e;
+    _elem_count++;
+    if(full_before){
+      _elem_count--;
+      CYCLIC_DECR(_back_id);
+    }
+  }
+
+  // Just move front/back pointer
+  void push_front(){
+    bool full_before = full();
+
+    CYCLIC_DECR(_front_id);
     _elem_count++;
     if(full_before){
       _elem_count--;

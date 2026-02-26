@@ -19,8 +19,7 @@
 struct LineBlock {
   cyclic_deque<ProcessedLine> lines;
   cyclic_deque<char*> raw_lines;
-  // Line nu,ber are global (i.e. number in the file)
-  line_t first_line_glbl_id, last_line_glbl_id;
+
   
   // Local line number, i.e. nth filtered line
   line_t first_line_local_id;
@@ -29,8 +28,6 @@ struct LineBlock {
   LineBlock(size_t max_size):lines(max_size), raw_lines(max_size){};
   LineBlock(LineBlock&& tomove): lines(std::move(tomove.lines)), raw_lines(std::move(tomove.raw_lines)){
     flags = tomove.flags;
-    first_line_glbl_id = tomove.first_line_glbl_id;
-    last_line_glbl_id = tomove.last_line_glbl_id;
     first_line_local_id = tomove.first_line_local_id;
   }
 
@@ -52,17 +49,20 @@ typedef struct {
 
 class LogParserInterface {
 private:
-uint32_t block_size;
-line_t active_line=0, known_first_line=0;
+  line_t  known_first_line=0;
   char* raw_line_storage;
   FilteredFileReader* ffr;
-  LineBlock block;
 
   void print_lines_in_block();
 
   void reset_and_refill_block(line_t around_global_line);
 
+  // Records mapping local->global for one in every 100 local line
+  std::vector<line_t> local_to_global_id;
+
 public:
+  uint32_t block_size;
+  LineBlock block;
   line_t known_last_line=LINE_MAX;
   LogParserInterface(std::string fname, LineFormat* fmt, std::shared_ptr<LineFilter> fltr, int bsize = 10000);
   ~LogParserInterface();
@@ -75,8 +75,23 @@ public:
   void setActiveLine(line_t line);
   void deltaActiveLine(int64_t delta);
 
-  //std::vector<std::string_view> getFromFirstLine(size_t count);
+  line_t getLineGlobalIdLowerbound(line_t local_line_id);
+  line_t getLineGlobalIdUpperbound(line_t local_line_id);
+
+  //std::vector<std::string_view> getFromFirstLine(size_t count)
+  
+
+  /**
+    * This is the main, simplest function to get a line in LOCAL ID
+    * from the file. This function call expects some locality between
+    * successive calls, don't use to to jump between very far away places
+    * in the file, as this function will read everything that is in between
+    * For this use jumpTo(Local/Global)Line instead
+    */
   line_info_t getLine(line_t local_line_id);
+
+  void jumpToLocalLine(line_t local_line_id);
+  void jumpToGlobalLine(line_t global_line_id);
   //std::vector<std::string_view> getLines(line_t from, line_t count);
   //std::vector<std::string_view> getFromLastLine(size_t count);
 

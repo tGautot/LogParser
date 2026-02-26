@@ -263,6 +263,11 @@ int main(int argc, char** argv){
   fmm.registerUserInputMapping(lpt);
   fmm.registerUserActionCallback(lpt);
   fmm.registerCommandCallback(lpt);
+
+  VimMotionsModule vmm;
+  vmm.registerUserInputMapping(lpt);
+  vmm.registerUserActionCallback(lpt);
+  vmm.registerCommandCallback(lpt);
   lpt.loop();
   logger_teardown();
 }
