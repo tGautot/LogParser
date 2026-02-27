@@ -223,8 +223,18 @@ LineFormat* getDefaultLineFormat(){
 
 #include "terminal_modules.hpp"
 
+#include <csignal>
+
+void signal_handler(int signal)
+{
+    logger_teardown();
+    exit(1);
+}
+ 
+
 int main(int argc, char** argv){
   logger_setup();
+  std::signal(SIGINT, signal_handler);
   logger_set_file("./logs.log");
   logger_set_minlvl(5);
   LOG(3, "Starting log\n");

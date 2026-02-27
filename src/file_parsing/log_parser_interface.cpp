@@ -213,15 +213,19 @@ line_t LogParserInterface::getLineGlobalIdUpperbound(line_t local_line_id){
 }
 
 void LogParserInterface::jumpToLocalLine(line_t local_line_id){
+  LOG_ENTRY("LogParserInterface::jumpToLocalLine");
+  LOG_FCT(5,"Jumping to local line %ld\n", local_line_id);
   line_t block_last_line = block.first_line_local_id + block_size;
   if(local_line_id >= block.first_line_local_id && local_line_id <= block_last_line){
     // Already in block
+    LOG_EXIT();
     return;
   }
 
   line_t around_line;
 
   if(local_line_id < block.first_line_local_id){
+    LOG_FCT(5, "Local line is above what current block holds\n");
     if(block.first_line_local_id - local_line_id < block_size){
       // Go there step by step, that way the block will be already correctly populated
       getLine(local_line_id);
@@ -232,6 +236,7 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
     around_line = getLineGlobalIdLowerbound(local_line_id);
     
   } else { // local > last line of block
+    LOG_FCT(5, "Local line is later what current block holds\n");
     if(local_line_id - block_last_line < block_size){
       getLine(local_line_id);
       return;
@@ -303,6 +308,8 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
 }
 
 void LogParserInterface::jumpToGlobalLine(line_t global_line_id){
+  LOG_LOGENTRY(5, "LogParserInterface::jumpToGlobalLine");
+  LOG_FCT(5, "Jumping to global line %ld\n", global_line_id);
   if(block.lines.front().line_num >= global_line_id && block.lines.back().line_num <= global_line_id){
     return;
   }
@@ -317,10 +324,11 @@ void LogParserInterface::jumpToGlobalLine(line_t global_line_id){
 
   ffr->goToLine(global_line_id);
 read_backwards:
+  LOG_FCT(5, "Reading backwards (%ld lines max)\n", segment_lines_left);
   while( segment_lines_left > 0  && 
       (nread = ffr->getPreviousValidLine(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id, pl)) != 0){
-    block.lines.push_back(pl);
-    block.raw_lines.push_back(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id);
+    block.lines.push_front(pl);
+    block.raw_lines.push_front(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id);
     line_storage_id++;
     segment_lines_left--;
   }
@@ -330,6 +338,7 @@ read_backwards:
   if(finished) goto done;
   ffr->goToLine(global_line_id);
 read_forward:
+  LOG_FCT(5, "Reading forward (%ld lines max)\n", segment_lines_left);
   while( segment_lines_left > 0  && 
       (nread = ffr->getNextValidLine(raw_line_storage + ffr->m_max_chars_per_line*line_storage_id, pl)) != 0){
     block.lines.push_back(pl);
@@ -354,7 +363,7 @@ read_forward:
   
 
 done:
-
+  LOG_EXIT();
   return;
 }
 

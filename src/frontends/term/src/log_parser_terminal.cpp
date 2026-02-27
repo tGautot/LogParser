@@ -159,7 +159,7 @@ bool LogParserTerminal::isCursorOnLastLine(){
 
 void LogParserTerminal::drawRows(){
   LOG_ENTRY("LogParserTerminal::drawRows");
-  //frame_str += ESC_CMD "K";
+  frame_str += ESC_CMD "J";
   term_state.displayed_pls.clear();
   for(int i = 0; i < term_state.nrows-1; i++){
     line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
@@ -182,15 +182,30 @@ void LogParserTerminal::drawRows(){
       frame_str += "\033[" FG_LIGHT_GREY "m" + line_num_str + "~ " "\033[0m";
 
       std::string formatted_line = std::string(fetched_line);
+      formatted_line.erase(std::remove(formatted_line.begin(), formatted_line.end(), '\r'), formatted_line.end());
       size_t match_pos = 0;
+      size_t last_visible_char = term_state.ncols - term_state.info_col_size;
+      size_t added_ansi_chars = 0;
       // Setup ansi seq in formatted line to highlight the word
       if(term_state.highlight_word != "") while((match_pos = formatted_line.find(term_state.highlight_word, match_pos)) != std::string::npos){
         static std::string end_invert_tag = "\e[27m"; 
         static std::string start_invert_tag = "\e[7m"; 
         LOG_FCT(5, "Found one match in line %lu highlighting it...\n", pl->line_num);
-        formatted_line.insert(formatted_line.begin() + match_pos + term_state.highlight_word.length(), end_invert_tag.begin(), end_invert_tag.end());
+        if(match_pos > last_visible_char+added_ansi_chars){
+          LOG_FCT(5, "Match is out of the screen, stopping there...\n");
+          break;
+        }
+        formatted_line.insert(formatted_line.begin() + 
+                  std::min(match_pos + term_state.highlight_word.length(), last_visible_char+added_ansi_chars), 
+                  end_invert_tag.begin(), end_invert_tag.end());
         formatted_line.insert(formatted_line.begin() + match_pos, start_invert_tag.begin(), start_invert_tag.end());
+        
+        added_ansi_chars += start_invert_tag.length() + end_invert_tag.length();
         match_pos += term_state.highlight_word.length() + start_invert_tag.length() + end_invert_tag.length();
+      }
+
+      if(fetched_line.size() + term_state.info_col_size > term_state.ncols){
+        formatted_line = formatted_line.substr(0, last_visible_char+added_ansi_chars);
       }
 
       frame_str += formatted_line;
@@ -207,7 +222,7 @@ void LogParserTerminal::drawRows(){
   char buf[81];
   if(term_state.input_mode == ACTION){
     // Status Line
-    snprintf(buf, 80, "Status: l%d:c%d frame: %lu", term_state.cy, term_state.cx, term_state.frame_num);
+    snprintf(buf, 80, "Status: l%d:c%d (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.nrows, term_state.ncols, term_state.frame_num);
   } else if(term_state.input_mode == RAW) {
     snprintf(buf, 80, "%s", term_state.raw_input.data());
   } else {

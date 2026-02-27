@@ -1,6 +1,7 @@
 
 #include "lp_terminal_module.hpp"
 #include "terminal_modules.hpp"
+#include <cctype>
 #include <cstdlib>
 
 #define ACTION_GO_TO_FILE_BEGINNING 200
@@ -21,6 +22,7 @@ void VimMotionsModule::registerUserActionCallback(LogParserTerminal& lpt) {
     if(act == ACTION_GO_TO_FILE_BEGINNING){
       term_state.cy = 0;
       term_state.line_offset = 0;
+      lpi->jumpToLocalLine(0);
     }
     if(act == ACTION_GO_TO_FILE_END){
 
@@ -36,17 +38,20 @@ void VimMotionsModule::registerCommandCallback(LogParserTerminal& lpt) {
     /* 
       TODO: Allow using :1234 to go to line 1234
       Need to define if this would be local or global line id, needs clarity
-    
-    int line_num = atoi(cmd.data() + 1);
-    line_t lpi_fl = lpi->block.first_line_local_id;
-    line_t lpi_ll = lpi->block.last_line_glbl_id;
-    if(line_num < lpi_fl){
+    */
+    if(!std::isdigit(cmd[1])) return 0;
 
-    } else if(line_num > lpi_ll){
-
-    } else {
-      // Is already in block, 
-    }*/
+    size_t line_num = atoll(cmd.data() + 1);
+    lpi->jumpToGlobalLine(line_num);
+    for(size_t i = 0; i < lpi->block.lines.size(); i++){
+      if(lpi->block.lines[i].line_num > line_num){
+        if((line_t) state.cy > lpi->block.first_line_local_id + i){
+          state.cy = lpi->block.first_line_local_id + i;
+        }
+        state.line_offset = lpi->block.first_line_local_id + i - state.cy;
+        break;
+      }
+    }
     return 0;
   });
 }

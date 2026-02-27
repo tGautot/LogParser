@@ -6,6 +6,7 @@
 #include "line_filter.hpp"
 
 
+
 int main(int argc, char** argv){
   if(argc == 1){
     std::cout << "Specify a file" << std::endl;

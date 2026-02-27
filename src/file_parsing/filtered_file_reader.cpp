@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <iosfwd>
 #include <iostream>
+#include <limits>
 #include <vector>
 #include <deque>
 
@@ -113,8 +114,9 @@ size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
   s[max_chars-1] = 0;
   size_t nread = m_is.gcount();
   // Reads until end-of-LINE and trahes everything
-  while(!m_is.eof() && m_is.fail()){
-    m_is.getline(trash, TRASH_SIZE);
+  if(!m_is.eof() && m_is.fail()){
+    m_is.clear();
+    m_is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
   }
   incrCurrLine();
   return nread;
@@ -174,8 +176,8 @@ void FilteredFileReader::seekRawLine(line_t num){
 }
 
 size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_t stop_at_line){
-  LOG_LOGENTRY(5, "FilteredFileReader::getNextValidLine");
-  LOG_FCT(5, "Searching for next valid line from %lu up to %lu\n",  m_curr_line, stop_at_line);
+  LOG_LOGENTRY(10, "FilteredFileReader::getNextValidLine");
+  LOG_FCT(10, "Searching for next valid line from %lu up to %lu\n",  m_curr_line, stop_at_line);
 
   if(m_curr_line >= stop_at_line) {LOG_EXIT(); return 0;}
 
@@ -213,13 +215,13 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
     line_stt = m_is.tellg();
     fo_end = (m_curr_line == 0) ? 0 : m_curr_line -1;
     
-    LOG_FCT(5, "Looking at line number %llu filtered out start and end: %llu, %llu\n", m_curr_line, fo_begin, fo_end);
+    LOG_FCT(10, "Looking at line number %llu filtered out start and end: %llu, %llu\n", m_curr_line, fo_begin, fo_end);
     size_t nread = readRawLine(dest, m_max_chars_per_line);
-    LOG_FCT(5, "Read %llu chars, line is well formated: %d, line content is \"%s\"\n", nread, pl.well_formated, dest);
+    LOG_FCT(10, "Read %llu chars, line is well formated: %d, line content is \"%s\"\n", nread, pl.well_formated, dest);
     
     pl.set_data(m_curr_line-1, dest, nread, m_line_parser, line_stt);
-    if(m_filter == nullptr) LOG_FCT(5, "No filter, will go through\n");
-    else LOG_FCT(5, "Passes filter=%d\n", m_filter->passes(&pl));
+    if(m_filter == nullptr) LOG_FCT(10, "No filter, will go through\n");
+    else LOG_FCT(10, "Passes filter=%d\n", m_filter->passes(&pl));
     if( (m_accept_bad_format && !pl.well_formated) 
         || m_filter == nullptr || m_filter->passes(&pl)){
       if(fo_end > fo_begin){ // Since intervals are [incl; incl], could add new block on ">=", but let's not care about single lines
