@@ -1,8 +1,8 @@
 #ifndef CYCLIC_DEQUE_HPP
 #define CYCLIC_DEQUE_HPP
 
-#include <algorithm>
 #include <cstddef>
+#include <new>
 #include <utility>
 
 #define CYCLIC_INCR(x) x = (x+1)%_size
@@ -11,13 +11,17 @@
 template <typename T>
 class cyclic_deque {
 private:
-  T* _storage;
+  alignas(T) char* _storage;
   size_t _size; // Maximum allowed number of elements in the _storage
   size_t _elem_count; // Number of elements populated
   size_t _front_id, _back_id;
+  T* item(int id){
+    // I am not sure I understand what this std::launder does exactly,
+    return std::launder(reinterpret_cast<T*>(_storage + id * sizeof(T)));
+  }
 public:
   cyclic_deque(size_t size) : _size(size), _elem_count(0){
-    _storage = new T[_size];
+    _storage = new char[_size * sizeof(T)];
     _back_id = 0;
     _front_id = 1 % _size;
   }
@@ -30,20 +34,21 @@ public:
     _back_id = tomove._back_id;
   }
   ~cyclic_deque(){
+    clear();
     if(_storage != nullptr) delete[] _storage;
   }
 
   bool empty(){ return _elem_count==0; }
   bool full(){ return _elem_count==_size; }
   size_t size(){ return _elem_count; }
-  size_t max_size(){ return _size; }
+  size_t capacity(){ return _size; }
 
   size_t getFrontId(){ return _front_id; }
   size_t getBackId(){ return _back_id; }
 
   void clear(){
     for(size_t i = 0; i < size(); i++){
-      this->operator[](i).~T();
+      item((_front_id + i)%_size)->~T();
     }
     _elem_count = 0;
     
@@ -51,32 +56,34 @@ public:
     _front_id = 1 % _size;
   }
 
-  T& front(){ return _storage[_front_id]; }
-  T& back(){ return _storage[_back_id]; }
+  T& front(){ return *item(_front_id); }
+  T& back(){ return *item(_back_id); }
 
-  void push_back(const T& e){
-    bool full_before = full();
-    
-    CYCLIC_INCR(_back_id);
-    _storage[_back_id] = e;
-    _elem_count++;
-    if(full_before){
-      _elem_count--;
+  template<class U>
+  void push_back(U&& e){
+    if(full()){
+      // We will use memspace in which currently is a live object, need to destroy it first
+      item(_front_id)->~T();
       CYCLIC_INCR(_front_id);
+      _elem_count--;
     }
+    CYCLIC_INCR(_back_id);
+    ::new(item(_back_id)) T(std::forward<U>(e));
+    _elem_count++;
   }
 
   template<class... Args>
-  void emplace_back(Args&&... args){
-    bool full_before = full();
-    
-    CYCLIC_INCR(_back_id);
-    ::new(&_storage[_back_id]) T(std::forward<Args>(args)...);
-    _elem_count++;
-    if(full_before){
-      _elem_count--;
+  T& emplace_back(Args&&... args){
+    if(full()){
+      // We will use memspace in which currently is a live object, need to destroy it first
+      item(_front_id)->~T();
       CYCLIC_INCR(_front_id);
+      _elem_count--;
     }
+    CYCLIC_INCR(_back_id);
+    T* p = ::new(item(_back_id)) T(std::forward<Args>(args)...);
+    _elem_count++;
+    return *p;
   }
 
   // Just move back/front pointer
@@ -91,29 +98,31 @@ public:
     }
   }
 
-  void push_front(const T& e){
-    bool full_before = full();
+  template<class U>
+  void push_front(U&& e){
+    if(full()){
+      item(_back_id)->~T();
+      CYCLIC_INCR(_back_id);
+      _elem_count--;
+    }
 
     CYCLIC_DECR(_front_id);
-    _storage[_front_id] = e;
+    ::new(item(_front_id)) T(std::forward<U>(e));
     _elem_count++;
-    if(full_before){
-      _elem_count--;
-      CYCLIC_DECR(_back_id);
-    }
   }
 
   template<class... Args>
-  void emplace_front(Args&&... args){
-    bool full_before = full();
-    
-    CYCLIC_DECR(_front_id);
-    ::new(&_storage[_back_id]) T(std::forward<Args>(args)...);
-     _elem_count++;
-    if(full_before){
+  T& emplace_front(Args&&... args){
+    if(full()){
+      item(_back_id)->~T();
+      CYCLIC_INCR(_back_id);
       _elem_count--;
-      CYCLIC_DECR(_back_id);
     }
+
+    CYCLIC_DECR(_front_id);
+    T* p = ::new(item(_front_id)) T(std::forward<Args>(args)...);
+    _elem_count++;
+    return *p;
   }
 
   // Just move front/back pointer
@@ -128,22 +137,20 @@ public:
     }
   }
 
-  T& pop_back(){
-    T e = _storage[_back_id];
+  void pop_back(){
     if(!empty()){
+      item(_back_id)->~T();
       CYCLIC_DECR(_back_id);
       _elem_count--;
     }
-    return e;
   }
 
-  T& pop_front(){
-    T e = _storage[_front_id];
+  void pop_front(){
     if(!empty()){
+      item(_front_id)->~T();
       CYCLIC_INCR(_front_id);
       _elem_count--;
     }
-    return e;
   }
 
   T& operator[](const size_t& id){
@@ -151,7 +158,7 @@ public:
       printf("Trying to get cyclic deque id %lu but is of size %lu\n", id, size());
       throw 0;
     }
-    return _storage[ (_front_id+id)%_size ];
+    return *item((_front_id + id) % _size);
   }
 };
 

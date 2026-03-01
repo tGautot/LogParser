@@ -154,8 +154,8 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
     int i = block_offset;
     ffr->goToPosition(block.lines.front().stt_pos, block.lines.front().line_num);
     while( (nread = ffr->getPreviousValidLine(block.raw_lines.back(), block.lines.back())) != 0){
-      block.raw_lines.push_front(block.raw_lines.back());
-      block.lines.push_front(block.lines.back());
+      block.raw_lines.push_front();
+      block.lines.push_front();
       block.first_line_local_id--;
       block.contains_last_line = false;
       got_req_line = got_req_line || (block.first_line_local_id == local_line_id);
@@ -182,8 +182,8 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   ffr->goToPosition(block.lines.back().stt_pos, block.lines.back().line_num);
   ffr->skipNextRawLines(1);
   while( (nread = ffr->getNextValidLine(block.raw_lines.front(), block.lines.front())) != 0){
-    block.raw_lines.push_back(block.raw_lines.front());
-    block.lines.push_back(block.lines.front());
+    block.raw_lines.push_back();
+    block.lines.push_back();
     block.first_line_local_id++;
     
     block_last_line_local_id++;
