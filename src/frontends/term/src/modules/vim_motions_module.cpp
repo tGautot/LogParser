@@ -42,16 +42,18 @@ void VimMotionsModule::registerCommandCallback(LogParserTerminal& lpt) {
     if(!std::isdigit(cmd[1])) return 0;
 
     size_t line_num = atoll(cmd.data() + 1);
-    lpi->jumpToGlobalLine(line_num);
-    for(size_t i = 0; i < lpi->block.lines.size(); i++){
-      if(lpi->block.lines[i].line_num > line_num){
-        if((line_t) state.cy > lpi->block.first_line_local_id + i){
-          state.cy = lpi->block.first_line_local_id + i;
-        }
-        state.line_offset = lpi->block.first_line_local_id + i - state.cy;
-        break;
-      }
+    lpi->jumpToLocalLine(line_num);
+    
+    // Must cy + line_offset = line_num
+    // Ideally don't change cy
+
+    if(line_num >= (size_t) state.cy){
+      state.line_offset = line_num - state.cy;
+    } else {
+      state.line_offset = 0;
+      state.cy = line_num;
     }
+    
     return 0;
   });
 }

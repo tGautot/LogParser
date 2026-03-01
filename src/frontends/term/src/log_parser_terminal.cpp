@@ -223,15 +223,24 @@ void LogParserTerminal::drawRows(){
   if(term_state.input_mode == ACTION){
     // Status Line
     snprintf(buf, 80, "Status: l%d:c%d (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.nrows, term_state.ncols, term_state.frame_num);
-  } else if(term_state.input_mode == RAW) {
-    snprintf(buf, 80, "%s", term_state.raw_input.data());
+    char buf2[81];
+    snprintf(buf2, 80, "BLK flli=%lu,frm=%lu,to=%lu,cll=%s  ", lpi->block.first_line_local_id, lpi->block.lines.front().line_num, lpi->block.lines.back().line_num, lpi->block.contains_last_line ? "true" : "false");
+    frame_str += buf;
+    if(strlen(buf) + strlen(buf2) < term_state.ncols){
+      frame_str += std::string(term_state.ncols-strlen(buf)-strlen(buf2), ' ');
+    }
+    frame_str += buf2;
   } else {
-    snprintf(buf, 80, "Unknown input mode %d", term_state.input_mode);
-  }
-  frame_str += buf;
-  if(strlen(buf) < term_state.ncols){
-    frame_str += std::string(term_state.ncols-strlen(buf), ' ');
-  }
+    if(term_state.input_mode == RAW) {
+      snprintf(buf, 80, "%s", term_state.raw_input.data());
+    } else {
+      snprintf(buf, 80, "Unknown input mode %d", term_state.input_mode);
+    }
+    frame_str += buf;
+    if(strlen(buf) < term_state.ncols){
+      frame_str += std::string(term_state.ncols-strlen(buf), ' ');
+    }
+  } 
 }
 
 

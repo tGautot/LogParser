@@ -11,10 +11,6 @@
 #include <memory>
 #include "cyclic_deque.hpp"
 
-#define BLKFLG_NONE 0
-#define BLKFLG_IS_FIRST 1
-#define BLKFLG_IS_LAST 2
-
 
 struct LineBlock {
   cyclic_deque<ProcessedLine> lines;
@@ -23,11 +19,11 @@ struct LineBlock {
   
   // Local line number, i.e. nth filtered line
   line_t first_line_local_id;
-  uint8_t flags;
+  bool contains_last_line = false;
 
   LineBlock(size_t max_size):lines(max_size), raw_lines(max_size){};
   LineBlock(LineBlock&& tomove): lines(std::move(tomove.lines)), raw_lines(std::move(tomove.raw_lines)){
-    flags = tomove.flags;
+    contains_last_line = tomove.contains_last_line;
     first_line_local_id = tomove.first_line_local_id;
   }
 
@@ -91,7 +87,8 @@ public:
   line_info_t getLine(line_t local_line_id);
 
   void jumpToLocalLine(line_t local_line_id);
-  void jumpToGlobalLine(line_t global_line_id);
+  
+  // void jumpToGlobalLine(line_t global_line_id);
   //std::vector<std::string_view> getLines(line_t from, line_t count);
   //std::vector<std::string_view> getFromLastLine(size_t count);
 

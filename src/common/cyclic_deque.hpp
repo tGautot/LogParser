@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <utility>
 
 #define CYCLIC_INCR(x) x = (x+1)%_size
 #define CYCLIC_DECR(x) x = (x==0) ? _size-1 : x-1
@@ -41,6 +42,9 @@ public:
   size_t getBackId(){ return _back_id; }
 
   void clear(){
+    for(size_t i = 0; i < size(); i++){
+      this->operator[](i).~T();
+    }
     _elem_count = 0;
     
     _back_id = 0;
@@ -55,6 +59,19 @@ public:
     
     CYCLIC_INCR(_back_id);
     _storage[_back_id] = e;
+    _elem_count++;
+    if(full_before){
+      _elem_count--;
+      CYCLIC_INCR(_front_id);
+    }
+  }
+
+  template<class... Args>
+  void emplace_back(Args&&... args){
+    bool full_before = full();
+    
+    CYCLIC_INCR(_back_id);
+    ::new(&_storage[_back_id]) T(std::forward<Args>(args)...);
     _elem_count++;
     if(full_before){
       _elem_count--;
@@ -80,6 +97,19 @@ public:
     CYCLIC_DECR(_front_id);
     _storage[_front_id] = e;
     _elem_count++;
+    if(full_before){
+      _elem_count--;
+      CYCLIC_DECR(_back_id);
+    }
+  }
+
+  template<class... Args>
+  void emplace_front(Args&&... args){
+    bool full_before = full();
+    
+    CYCLIC_DECR(_front_id);
+    ::new(&_storage[_back_id]) T(std::forward<Args>(args)...);
+     _elem_count++;
     if(full_before){
       _elem_count--;
       CYCLIC_DECR(_back_id);
