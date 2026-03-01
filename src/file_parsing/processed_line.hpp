@@ -9,11 +9,11 @@
 class ProcessedLine {
 public:
   std::streampos stt_pos;
-  line_t line_num;
+  line_t line_num = 0;
   // Read only, but we need to be carefull about scoping of original data
-  std::string_view raw_line;
-  std::shared_ptr<ParsedLine> pl;
-  bool well_formated;
+  std::string_view raw_line = "";
+  std::shared_ptr<ParsedLine> pl = nullptr;
+  bool well_formated = false;
 
   ProcessedLine() = default;
   ProcessedLine(line_t line, char* s, size_t n_char, Parser* p, std::streampos strm_pos);
