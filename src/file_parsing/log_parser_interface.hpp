@@ -59,7 +59,7 @@ private:
 public:
   uint32_t block_size;
   LineBlock block;
-  line_t known_last_line=LINE_MAX;
+  line_t known_last_line=LINE_T_MAX;
   LogParserInterface(std::string fname, LineFormat* fmt, std::shared_ptr<LineFilter> fltr, int bsize = 1000);
   ~LogParserInterface();
 

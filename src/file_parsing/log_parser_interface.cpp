@@ -19,7 +19,7 @@ LogParserInterface::LogParserInterface(std::string fname, LineFormat* fmt, std::
   : block_size(bsize), block(bsize){
   LOG_LOGENTRY(5, "LogParserInterface::LogParserInterface");
   ffr = new FilteredFileReader(fname, fmt, fltr, 10);
-  known_last_line = LINE_MAX;
+  known_last_line = LINE_T_MAX;
   known_first_line = 0;
 
   ProcessedLine pl;
@@ -56,7 +56,7 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
   
   block.lines.clear();
   block.raw_lines.clear();
-  known_last_line = LINE_MAX;
+  known_last_line = LINE_T_MAX;
   known_first_line = 0;
 
   bool found_anchor =  false;
@@ -215,7 +215,7 @@ line_t LogParserInterface::getLineGlobalIdLowerbound(line_t local_line_id){
 }
 line_t LogParserInterface::getLineGlobalIdUpperbound(line_t local_line_id){
   size_t idx = local_line_id/100+1;
-  if(idx >= local_to_global_id.size()) return LINE_MAX;
+  if(idx >= local_to_global_id.size()) return LINE_T_MAX;
   return local_to_global_id[idx];
 
 }
@@ -261,7 +261,7 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
     around_global_line = getLineGlobalIdUpperbound(local_line_id);
     around_local_line = local_line_id - (local_line_id%100) + 100;
 
-    if(around_global_line == LINE_MAX){  // Unkown best we can do is go as far as we explored, and walk from there    
+    if(around_global_line == LINE_T_MAX){  // Unkown best we can do is go as far as we explored, and walk from there    
       line_t lb;
 
       assert(local_to_global_id.size() > 0);
