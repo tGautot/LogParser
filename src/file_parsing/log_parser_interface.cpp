@@ -118,9 +118,9 @@ void LogParserInterface::print_lines_in_block(){
 
 line_info_t LogParserInterface::getLine(line_t local_line_id){
   LOG_LOGENTRY(9, "LogParserInterface::getLine");
-  LOG_FCT(9, "Looking for line %llu, block rqnge is [%llu, %llu[\n", local_line_id, block.first_line_local_id, block.first_line_local_id + block_size);
-  if(local_line_id >= block.first_line_local_id && (local_line_id < block.first_line_local_id + block_size || block.contains_last_line) ){
-    if( (block.contains_last_line) && local_line_id - block.first_line_local_id >= block.size() ){
+  LOG_FCT(9, "Looking for line %llu, block rqnge is [%llu, %llu[\n", local_line_id, block.first_line_local_id, block.first_line_local_id + block.size());
+  if(local_line_id >= block.first_line_local_id && (local_line_id < block.first_line_local_id + block.size() || block.contains_last_line) ){
+    if( (block.contains_last_line) && local_line_id >= block.first_line_local_id + block.size() ){
       return {nullptr, INFO_EOF};
     }
     LOG_FCT(9, "Is in block!\n");
@@ -143,6 +143,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
     // Should not happen since local_line_id is line_t
     if(block.first_line_local_id == 0) return {nullptr, INFO_ERROR};
 
+    block.contains_last_line = false;
 
     // Requested line is before
     // Fill block by going upwards in the file
@@ -157,7 +158,6 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
       block.raw_lines.push_front();
       block.lines.push_front();
       block.first_line_local_id--;
-      block.contains_last_line = false;
       got_req_line = got_req_line || (block.first_line_local_id == local_line_id);
       if(got_req_line){
         if(i <= 0) break;
@@ -229,13 +229,13 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
     LOG_EXIT();
     return;
   }
- 
 
   line_t around_global_line; // Global id of the line around which the block might need to be formed
   line_t around_local_line; // local id of "around_line"
 
   if(local_line_id < block.first_line_local_id){
     LOG_FCT(5, "Local line is above what current block holds\n");
+    block.contains_last_line = false;
     if(block.first_line_local_id - local_line_id < block_size){
       // Go there step by step, that way the block will be already correctly populated
       getLine(local_line_id);

@@ -236,7 +236,7 @@ int main(int argc, char** argv){
   logger_setup();
   std::signal(SIGINT, signal_handler);
   logger_set_file("./logs.log");
-  logger_set_minlvl(10);
+  logger_set_minlvl(0);
   LOG(3, "Starting log\n");
   if(argc != 2){
     printf("Usage ./lp_term <file_path>\n");

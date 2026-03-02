@@ -18,14 +18,21 @@ void VimMotionsModule::registerUserInputMapping(LogParserTerminal& lpt){
   lpt.registerUserInputMapping("l", ACTION_MOVE_RIGHT);
 }
 void VimMotionsModule::registerUserActionCallback(LogParserTerminal& lpt) {
-  lpt.registerActionCallback([](user_action_t act, term_state_t& term_state, LogParserInterface* lpi)-> int{
+  lpt.registerActionCallback([](user_action_t act, term_state_t& state, LogParserInterface* lpi)-> int{
     if(act == ACTION_GO_TO_FILE_BEGINNING){
-      term_state.cy = 0;
-      term_state.line_offset = 0;
+      state.cy = 0;
+      state.line_offset = 0;
       lpi->jumpToLocalLine(0);
     }
     if(act == ACTION_GO_TO_FILE_END){
-
+      lpi->jumpToLocalLine(LINE_T_MAX);
+      line_t line_num = lpi->block.first_line_local_id + lpi->block.lines.size()-1;
+      if(line_num >= (size_t) state.cy){
+        state.line_offset = line_num - state.cy;
+      } else {
+        state.line_offset = 0;
+        state.cy = line_num;
+      }
     }
     return 0;
   });

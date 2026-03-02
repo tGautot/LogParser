@@ -41,6 +41,7 @@ FilteredFileReader::~FilteredFileReader(){
 }
 
 void FilteredFileReader::reset(bool checkpoints_also){
+  m_is.clear();
   m_is.seekg(m_checkpoints[0]);
   m_curr_line = 0;
   if(checkpoints_also){
@@ -86,12 +87,14 @@ void FilteredFileReader::goToCheckpoint(line_t cp_id){
       skipNextRawLines(m_checkpoint_dist - (m_curr_line % m_checkpoint_dist));
     }
   } else {
+    m_is.clear();
     m_is.seekg(m_checkpoints[cp_id]);
     m_curr_line = m_checkpoint_dist * cp_id;
   }
 }
 
 void FilteredFileReader::goToPosition(std::streampos pos, line_t line_num){
+  m_is.clear();
   m_is.seekg(pos);
   m_curr_line = line_num;
 }
@@ -215,7 +218,7 @@ size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_
     line_stt = m_is.tellg();
     fo_end = (m_curr_line == 0) ? 0 : m_curr_line -1;
     
-    LOG_FCT(10, "Looking at line number %llu filtered out start and end: %llu, %llu\n", m_curr_line, fo_begin, fo_end);
+    LOG_FCT(10, "Looking at line number %llu (streampos: %lld) filtered out start and end: %llu, %llu\n", m_curr_line, line_stt, fo_begin, fo_end);
     size_t nread = readRawLine(dest, m_max_chars_per_line);
     LOG_FCT(10, "Read %llu chars, line is well formated: %d, line content is \"%s\"\n", nread, pl.well_formated, dest);
     
@@ -284,6 +287,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
       for(auto itt = valid_lines.end()-1; itt >= valid_lines.begin(); itt--){
         if(m_curr_line > itt->line_num){
           // Place cursor at beginning of line
+          m_is.clear();
           m_is.seekg(itt->stt_pos);
           m_curr_line = itt->line_num;
 
@@ -308,7 +312,7 @@ size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
   std::deque<ProcessedLine> new_findings;
 
   char* tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
-  LOG(1, "Malloced first raw line at %p\n", tmpdest);
+  LOG_FCT(1, "Malloced first raw line at %p\n", tmpdest);
   ProcessedLine tmp_pl;
   
   while (1) {

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <new>
+#include <stdexcept>
 #include <utility>
 
 #define CYCLIC_INCR(x) x = (x+1)%_size
@@ -156,7 +157,7 @@ public:
   T& operator[](const size_t& id){
     if(id >= size()){
       printf("Trying to get cyclic deque id %lu but is of size %lu\n", id, size());
-      throw 0;
+      throw std::runtime_error("Invalid index");
     }
     return *item((_front_id + id) % _size);
   }
