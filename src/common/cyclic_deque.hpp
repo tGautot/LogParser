@@ -103,7 +103,7 @@ public:
   void push_front(U&& e){
     if(full()){
       item(_back_id)->~T();
-      CYCLIC_INCR(_back_id);
+      CYCLIC_DECR(_back_id);
       _elem_count--;
     }
 
@@ -116,7 +116,7 @@ public:
   T& emplace_front(Args&&... args){
     if(full()){
       item(_back_id)->~T();
-      CYCLIC_INCR(_back_id);
+      CYCLIC_DECR(_back_id);
       _elem_count--;
     }
 

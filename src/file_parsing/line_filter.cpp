@@ -220,6 +220,8 @@ bool FieldFilter::_passes(const ParsedLine* pl){
   return (this->*pass_fn)(pl);
 }
 
+LineNumberFilter::LineNumberFilter(line_t from, line_t to) :  line_from(from), line_to(to) {}
+
 bool LineNumberFilter::_passes(const ProcessedLine* pl){ 
   return pl->line_num >= line_from && pl->line_num <= line_to;
 }

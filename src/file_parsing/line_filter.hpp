@@ -54,9 +54,9 @@ class RawLineFilter : public LineFilter {
 public:
   std::string must_contain;
   
+  RawLineFilter(std::string& substr);
 private:
 
-  RawLineFilter(std::string& substr);
 
   bool _passes(const ProcessedLine* pl) override;
   bool _passes(const ParsedLine* pl) override;
@@ -95,8 +95,8 @@ class LineNumberFilter : public LineFilter {
 public:
   line_t line_from, line_to; 
 
-private:
   LineNumberFilter(line_t from, line_t to);
+private:
   bool _passes(const ProcessedLine* pl) override;
   bool _passes(const ParsedLine* pl) override;
 };
