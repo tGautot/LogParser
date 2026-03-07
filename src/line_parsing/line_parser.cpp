@@ -1,8 +1,5 @@
 #include "line_parser.hpp"
 
-extern "C"{
-#include "logging.h"
-}
 
 Parser* Parser::fromLineFormat(LineFormat* lfmt){
   Parser* p = new Parser();
