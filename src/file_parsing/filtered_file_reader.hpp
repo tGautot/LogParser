@@ -10,66 +10,93 @@
 #include <deque>
 #include <memory>
 
+
+/**
+  * FileData
+  * Any file opened has some data that doesn't change no matter what the user has 
+  * set for line format/filters or other configurable paramter, this class holds this data
+  * Hence there should every be 1 instance of this class per file open
+  */
+typedef struct {
+  file_pos_t size;
+  std::vector<file_pos_t> line_index; // file_pos_t at which lines start
+  std::string fname;
+  const char* data; // raw bytes, from file mapping
+} FileData;
+
+
+/**
+  * FilterConfig
+  * Holds all the elements which can changes how lines can be interpreted/validated
+  * Most of these elements should be available to the user to change to his liking
+  */
+typedef struct {
+  std::shared_ptr<Parser> parser; // holds the line_format
+  std::shared_ptr<LineFilter> filter;
+  bool accept_bad_format;
+} FilterFileReaderConfig;
+
+/**
+  * FilteredFileData
+  * When a file is given some of Parsx configurable elements (line format, filters,...) we can
+  * store some additional data tha will help us navigate the file more efficiently, 
+  * this class stores this data
+  * This also means, any two FilteredFileReader using the same FilterConfig, can share the same FilteredFileData
+  */
+typedef struct {
+  std::vector<bool> line_passes; // std::vector<bool>, caution is advised......................
+  std::vector<file_pos_t> valid_line_index;
+} FilteredFileData;
+
+
+
+/**
+  * FilteredFileReader
+  * Multiple instances of this class can be spawned targetting the same file but with different configs
+  * This can be usefull in scenarios when one wants to search for something in the file without perturbing 
+  * the state of another reader
+*/
 class FilteredFileReader {
 public:
-  LineFormat* m_lf;
-  std::shared_ptr<LineFilter> m_filter;
-  const size_t m_max_chars_per_line;
+  std::shared_ptr<FilterFileReaderConfig> m_config;
+  std::shared_ptr<FilteredFileData> m_filtered_file_data;
+  FileData& m_file_data; // FilteredFileReader MUST have a FileData, hence ref
   Parser* m_line_parser;
-  bool m_accept_bad_format = true;
   
-  std::ifstream m_is;
+  file_pos_t m_cursor;
   line_t m_curr_line;
-  const line_t m_checkpoint_dist;
-  std::vector<std::streampos> m_checkpoints;
   
-  // Pair of [incl; incl] line numbers which we know are filtered out
-  std::vector<std::pair<line_t, line_t>> m_filtered_out_lines;
-  
-  void goToCheckpoint(line_t cp_id);
-  void goToPosition(std::streampos pos, line_t is_line_num);
-  void goToLine(line_t line_num);
-  size_t readRawLine(char* s, uint32_t max_chars);
+  void jumpToLine(line_t line_num);
+  size_t getNextRawLine(const char** s);
+  size_t getPrevRawLine(const char** s);
   void skipNextRawLines(line_t n);
   void incrCurrLine();
   int addFilteredOutGroup(line_t stt, line_t end, uint64_t idx);
   
 
 // Main public interface
-  FilteredFileReader(std::string& fname, LineFormat* lf, line_t checkpoint_dist = 1000);
-  FilteredFileReader(std::string& fname, LineFormat* lf, std::shared_ptr<LineFilter> filter, line_t checkpoint_dist = 1000);
+  FilteredFileReader(std::string& fname);
+  FilteredFileReader(std::string& fname, std::unique_ptr<LineFormat> line_format);
+  FilteredFileReader(std::string& fname, std::unique_ptr<LineFormat> line_format, std::shared_ptr<LineFilter> filter);
 
   ~FilteredFileReader();
 
-  void reset(bool checkpoints_also = false);
-  void setFormat(LineFormat* format);
+  void reset();
+  void setFormat(std::unique_ptr<LineFormat> format);
   void setFilter(std::shared_ptr<LineFilter> filter);
 
-  size_t getMaxCharsPerLine() { return m_max_chars_per_line; }
-
   void seekRawLine(line_t line_num);
-  // Needs to be given storage to store the line (needs at most m_max_chars_per_line bytes)
-  // and a ProcessedLine which the function will populate
-  // It will return the number of character read/stored (again, at most m_max_chars_per_line)
-  // If the function returns 0, there is no garentee as to where the input stream head might be
-  size_t getNextValidLine(char* dest, ProcessedLine& pl, line_t stop_at_line = LINE_T_MAX);
- 
- 
-  struct { 
-    // Lowest line for which we know the previous valid are the `valid_lines`
-    line_t searched_from = 0;
-    // Highest line up until which we have searched for valid lines
-    line_t searched_to = 0;
-    // All the lines we know are valid above `searched_from` lowest index, are lines with lower line_t count
-    // The ProcessedLines stored statically here all contain a string_view which points to dynamically allocated data
-    // This data must be freed when the PL is discarded
-    // To avoid complex memory management, when one result is genven back to the caller, it is deep copied;
-    std::deque<ProcessedLine> valid_lines;
-  } m_cached_previous;
-  size_t getPreviousValidLine(char* dest, ProcessedLine& pl);
-  bool eof(){ return m_is.eof(); }
 
-  void invalidateCachedResults();
+  // These two functions will return the number of character read
+  // If the function returns false, that means that there exist no valid/previous line. 
+  // In those cases, there is no garentee as to where the cursor might be after the call
+  bool getNextValidLine(ProcessedLine& pl);
+  bool getPreviousValidLine(ProcessedLine& pl);
+  bool eof(){ return m_cursor >= m_file_data.size; }
+
+  // Used when gdbing internals, since gdb cant access mmaped files
 };
+
+__attribute__((noinline)) char readCharAtPos(unsigned long long cp);
 
 #endif

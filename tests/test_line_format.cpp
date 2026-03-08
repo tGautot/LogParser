@@ -6,7 +6,7 @@
 TEST_CASE("Line Format specifier parsing") {
   setup();
   std::string spec = "{INT:Date} {INT:Time} {STR:Level} {CHR:, ,1}:{CHR:,.,1}{STR:Source}:{CHR:, ,1}{STR:Mesg}";
-  LineFormat* lf = LineFormat::fromFormatString(spec);
+  std::unique_ptr<LineFormat> lf = LineFormat::fromFormatString(spec);
   lf->toString();
   REQUIRE(lf->fields.size() == 13);
   REQUIRE(dynamic_cast<LineIntField*>(lf->fields[0])  != nullptr);
@@ -23,17 +23,16 @@ TEST_CASE("Line Format specifier parsing") {
   REQUIRE(dynamic_cast<LineChrField*>(lf->fields[11]) != nullptr);
   REQUIRE(dynamic_cast<LineStrField*>(lf->fields[12]) != nullptr);
 
-  Parser* p  = Parser::fromLineFormat(lf);
-  ParsedLine* pl = new ParsedLine(lf);
+  std::shared_ptr<Parser> p  = Parser::fromLineFormat(std::move(lf));
+  ParsedLine* pl = new ParsedLine(p->format.get());
   REQUIRE(p->parseLine(info_lines[0], pl) == true);
-
-  freeLineFormat(lf);
+  delete pl;
   teardown();
 }
 
 TEST_CASE("LineFormat - getFieldFromName") {
   setup();
-  LineFormat* lf = getDefaultLineFormat();
+  std::unique_ptr<LineFormat>  lf = getDefaultLineFormat();
 
   SECTION("Named fields are found and have correct type") {
     LineField* date  = lf->getFieldFromName("Date");
@@ -65,19 +64,17 @@ TEST_CASE("LineFormat - getFieldFromName") {
     REQUIRE(lf->getFieldFromName("") == nullptr);
   }
 
-  freeLineFormat(lf);
   teardown();
 }
 
 TEST_CASE("LineFormat - field counts") {
   setup();
-  LineFormat* lf = getDefaultLineFormat();
+  std::unique_ptr<LineFormat>  lf = getDefaultLineFormat();
   // getDefaultLineFormat: 2 INT, 0 DBL, 7 CHR, 3 STR
   REQUIRE(lf->getNIntFields()    == 2);
   REQUIRE(lf->getNDoubleFields() == 0);
   REQUIRE(lf->getNCharFields()   == 7);
   REQUIRE(lf->getNStringFields() == 3);
-  freeLineFormat(lf);
   teardown();
 }
 
@@ -85,7 +82,7 @@ TEST_CASE("LineFormat - DBL field parsing") {
   setup();
   // Format: INT, space (literal CHR), DBL
   std::string spec = "{INT:Count} {DBL:Score}";
-  LineFormat* lf   = LineFormat::fromFormatString(spec);
+  std::unique_ptr<LineFormat>  lf   = LineFormat::fromFormatString(spec);
 
   REQUIRE(lf->getNIntFields()    == 1);
   REQUIRE(lf->getNDoubleFields() == 1);
@@ -98,16 +95,14 @@ TEST_CASE("LineFormat - DBL field parsing") {
   }
 
   SECTION("Parser fills DBL field correctly") {
-    Parser* parser = Parser::fromLineFormat(lf);
-    ParsedLine* pl = new ParsedLine(lf);
+    std::shared_ptr<Parser> p  = Parser::fromLineFormat(std::move(lf));
+    ParsedLine* pl = new ParsedLine(p->format.get());
     std::string line = "42 3.14";
-    REQUIRE(parser->parseLine(line, pl));
+    REQUIRE(p->parseLine(line, pl));
     REQUIRE(*(pl->getIntField(0)) == 42);
     REQUIRE(*(pl->getDblField(0)) == Catch::Approx(3.14));
     delete pl;
-    delete parser;
   }
 
-  freeLineFormat(lf);
   teardown();
 }

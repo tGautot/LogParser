@@ -8,18 +8,18 @@
 
 TEST_CASE("Basic line filtering") {
   setup();
-  LineFormat* lf = getDefaultLineFormat();
-  Parser* parser = Parser::fromLineFormat(lf);
+  std::unique_ptr<LineFormat> lf = getDefaultLineFormat();
+  std::shared_ptr<Parser> parser = Parser::fromLineFormat(std::move(lf));
 
   std::string filename = TEST_FOLDER "data/sample.log";
   std::ifstream file(filename);
   std::string line;
 
-  ParsedLine* pl = new ParsedLine(lf);
+  ParsedLine* pl = new ParsedLine(parser->format.get());
 
   SECTION("Filter on int") {
     int64_t base_val = 85409;
-    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Time", FilterComparison::GREATER_EQ, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(parser->format.get(), "Time", FilterComparison::GREATER_EQ, &base_val);
     int i = 1;
     while (std::getline(file, line)) {
       parser->parseLine(line, pl);
@@ -34,7 +34,7 @@ TEST_CASE("Basic line filtering") {
 
   SECTION("Filter on string") {
     std::string base_val = "INFO";
-    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(lf, "Level", FilterComparison::EQUAL, &base_val);
+    std::shared_ptr<LineFilter> filter = std::make_shared<FieldFilter>(parser->format.get(), "Level", FilterComparison::EQUAL, &base_val);
     int matches = 0;
     while (std::getline(file, line)) {
       parser->parseLine(line, pl);
@@ -44,7 +44,5 @@ TEST_CASE("Basic line filtering") {
   }
 
   delete pl;
-  delete parser;
-  freeLineFormat(lf);
   teardown();
 }

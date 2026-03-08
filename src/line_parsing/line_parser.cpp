@@ -1,9 +1,9 @@
 #include "line_parser.hpp"
+#include <memory>
 
 
-Parser* Parser::fromLineFormat(LineFormat* lfmt){
-  Parser* p = new Parser();
-  p->format = lfmt;
+std::shared_ptr<Parser> Parser::fromLineFormat(std::unique_ptr<LineFormat> lfmt){
+  std::shared_ptr<Parser> p = std::make_shared<Parser>();
   if(lfmt == nullptr) return p;
   LineField* lfield;
   for(size_t i = 0; i < lfmt->fields.size(); i++){
@@ -35,6 +35,7 @@ Parser* Parser::fromLineFormat(LineFormat* lfmt){
       p->addParsingStep(str_parsing);
     }
   }
+  p->format = std::move(lfmt);
   return p;
 }
 
@@ -52,15 +53,20 @@ void Parser::addParsingStep(parse_instruction_t* inst){
   parsing_routine.push_back(inst);
 }
 
+#include "logging.hpp"
+
 bool Parser::parseLine(std::string_view line, ParsedLine* ret){
+  //LOG(1, "Going to parse line with format %p\n", format.get());
   if(format == nullptr) return false;
   std::vector<parse_instruction_t*>::iterator iter;
 
   const char* s = line.data();
   int nint_parsed = 0, ndbl_parsed = 0, nchr_parsed = 0, nstr_parsed = 0;
+  //LOG(1, "Going into loop!!!!!!!!!e\n");
   for(iter = parsing_routine.begin(); iter != parsing_routine.end(); iter++){
     parse_instruction_t* inst = *iter;
-    //std::cout << "pointer is now at char " << *s  << " (offset: " << s-start_s << ")" << std::endl;
+    //LOG(1, "Parsing new step, field type=%d\n", inst->ft);
+    //std::cout << "pointer is now at char " << *s  << " (offset: " << s-line.data() << ")" << std::endl;
     int res = 0;
     switch(inst->ft){
     case FieldType::INT:

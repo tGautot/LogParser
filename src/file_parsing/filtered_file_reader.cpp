@@ -2,461 +2,248 @@
 #include "line_format.hpp"
 #include "processed_line.hpp"
 
-#include <cstddef>
-#include <iosfwd>
-#include <iostream>
-#include <limits>
-#include <vector>
-#include <deque>
 
+#include <cassert>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
+
+#ifdef WIN32
+// TODO
+#else
 extern "C"{
-  #include "logging.h"
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 }
+#endif
+
 #include "logging.hpp"
 
-#define TRASH_SIZE 1024
-static char trash[TRASH_SIZE];
+char readCharAtPos(unsigned long long cp){return *(char*)cp;}
 
-FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, line_t checkpoint_dist) 
-  : m_lf(lf), m_max_chars_per_line(256), m_checkpoint_dist(checkpoint_dist){
+static FileData g_opened_file = {0, {}, "", nullptr};
 
-  m_is = std::ifstream(fname, std::ios::in);
-  m_line_parser = Parser::fromLineFormat(m_lf);
-  m_filter = nullptr;
-  m_checkpoints.push_back(m_is.tellg());
+FilteredFileReader::FilteredFileReader(std::string& fname) 
+ : m_file_data(g_opened_file){
+
+  if(m_file_data.data == nullptr){
+    m_file_data.fname = fname;
+#ifdef WIN32
+    // TODO
+#else 
+    int fd = open(fname.data(), O_RDONLY);
+    if (fd < 0) throw std::system_error(errno, std::system_category());
+
+    struct stat st;
+    fstat(fd, &st); // This can take a long time, but I don't know about any alternatives
+    m_file_data.size = st.st_size;
+
+    if (m_file_data.size > 0) {
+        void* ptr = mmap(nullptr, m_file_data.size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (ptr == MAP_FAILED) {
+            close(fd);
+            throw std::system_error(errno, std::system_category());
+        }
+        m_file_data.data = static_cast<const char*>(ptr);
+        LOG(1, "mmaped filed at address %p\n", m_file_data.data);
+
+        // Hint: we'll access this sequentially AND randomly
+        madvise(const_cast<char*>(m_file_data.data), m_file_data.size, MADV_RANDOM);
+    }
+    close(fd);
+    m_file_data.line_index = {0};
+#endif
+  }
+
+  m_filtered_file_data = std::make_shared<FilteredFileData>();
+  m_config = std::make_shared<FilterFileReaderConfig>();
+  m_config->parser = nullptr;
+  m_config->filter = nullptr;
+  m_config->accept_bad_format = true;
+  
+  m_cursor = 0;
   m_curr_line = 0;
 }
 
-FilteredFileReader::FilteredFileReader(std::string& fname, LineFormat* lf, std::shared_ptr<LineFilter> filter, line_t checkpoint_dist)
-  : FilteredFileReader(fname, lf, checkpoint_dist){
-  m_filter = filter;
+FilteredFileReader::FilteredFileReader(std::string& fname, std::unique_ptr<LineFormat> line_format)
+  : FilteredFileReader(fname){
+  m_config->parser = Parser::fromLineFormat(std::move(line_format));
+}
+
+FilteredFileReader::FilteredFileReader(std::string& fname, std::unique_ptr<LineFormat> line_format, std::shared_ptr<LineFilter> filter)
+  : FilteredFileReader(fname){
+  m_config->parser = Parser::fromLineFormat(std::move(line_format));
+  m_config->filter = filter;
 }
 
 FilteredFileReader::~FilteredFileReader(){
-  while(!m_cached_previous.valid_lines.empty()){
-    free((void*) m_cached_previous.valid_lines.back().raw_line.data());
-    m_cached_previous.valid_lines.pop_back();
-  }
-  delete m_line_parser;
+  // TODO remove this when we want multi-filereader support
+  munmap((void*)m_file_data.data, m_file_data.size);
+  g_opened_file = {0, {}, "", nullptr};
 }
 
-void FilteredFileReader::reset(bool checkpoints_also){
-  m_is.clear();
-  m_is.seekg(m_checkpoints[0]);
+void FilteredFileReader::reset(){
   m_curr_line = 0;
-  if(checkpoints_also){
-    m_checkpoints.resize(1);
-  }
-  invalidateCachedResults();
-  m_filtered_out_lines.clear();
+  m_cursor = 0;
+  m_filtered_file_data->line_passes.clear();
+  m_filtered_file_data->valid_line_index.clear();
 }
 
-void FilteredFileReader::setFormat(LineFormat* format){
-  reset(false);
-  m_lf = format;
+void FilteredFileReader::setFormat(std::unique_ptr<LineFormat> line_format){
+  reset();
+  m_config->parser = Parser::fromLineFormat(std::move(line_format));
 }
 
 void FilteredFileReader::setFilter(std::shared_ptr<LineFilter> filter){
-  reset(false);
-  m_filter = filter;
+  reset();
+  m_config->filter = filter;
 }
 
-
-void FilteredFileReader::incrCurrLine(){
-  m_curr_line++;
-  if(m_curr_line % m_checkpoint_dist == 0){
-    line_t ncp = m_curr_line / m_checkpoint_dist;
-    // Could do sanity check checkpoint[ncp] == is.tellg()
-    if(ncp == m_checkpoints.size()){
-      m_checkpoints.push_back(m_is.tellg());
-    } 
-    if(ncp > m_checkpoints.size()){
-      // Something went very wrong
-    }
-    
+void FilteredFileReader::jumpToLine(line_t line_num){
+  if(line_num >= m_file_data.line_index.size()){
+    LOG(1, "Invalid index in FilteredFileReader::jumpToLine=%llu\b", line_num);
+    throw std::runtime_error("Cannot use jumpToLine with an index that hasn't yet parsed");
   }
-}
-
-void FilteredFileReader::goToCheckpoint(line_t cp_id){
-  if(cp_id >= m_checkpoints.size()){
-    if(m_is.tellg() < m_checkpoints.back()){
-      goToCheckpoint(m_checkpoints.size()-1);
-    }
-    int cps_to_clear = cp_id - m_checkpoints.size() + 1;
-    while(cps_to_clear--){
-      skipNextRawLines(m_checkpoint_dist - (m_curr_line % m_checkpoint_dist));
-    }
-  } else {
-    m_is.clear();
-    m_is.seekg(m_checkpoints[cp_id]);
-    m_curr_line = m_checkpoint_dist * cp_id;
-  }
-}
-
-void FilteredFileReader::goToPosition(std::streampos pos, line_t line_num){
-  m_is.clear();
-  m_is.seekg(pos);
   m_curr_line = line_num;
+  m_cursor = m_file_data.line_index[m_curr_line];
 }
 
-
-void FilteredFileReader::goToLine(line_t line_num){
-  LOG_ENTRY("FilteredFileReader::goToLine");
-  LOG_FCT(3, "target: %lu, curr: %lu, cp_dist: %lu\n", line_num, m_curr_line, m_checkpoint_dist);
-  if(m_curr_line > line_num || m_curr_line < line_num-(line_num%m_checkpoint_dist)){
-    goToCheckpoint(line_num/m_checkpoint_dist);
-    LOG(3, "curr line aftger goToCheckpoint: %lu\n", m_curr_line);
+size_t FilteredFileReader::getNextRawLine(const char** s){
+  LOG_LOGENTRY(9, "FilteredFileReader::getNextRawLine");
+  LOG_FCT(9, "m_curr_line=%lu,already indexed %lu lines\n", m_curr_line, m_file_data.line_index.size()); 
+  size_t sz = 0;
+  *s = m_file_data.data + m_cursor;
+  if(m_curr_line+1 == m_file_data.line_index.size()){ // On last indexed line need to find next LF
+    if(m_cursor >= m_file_data.size){ // Rerached eof
+      *s = nullptr;
+      LOG_EXIT();
+      return 0;
+    }
+    LOG_FCT(9, "Exploring next line...\n");
+    while(m_cursor + sz < m_file_data.size && m_file_data.data[m_cursor+sz] != '\n'){sz++;}
+    m_cursor = std::min(m_cursor+sz+1, m_file_data.size); // +1 to go beyond \n
+  } else if(m_curr_line+1 < m_file_data.line_index.size()){
+    sz = m_file_data.line_index[m_curr_line+1] - m_file_data.line_index[m_curr_line] - 1; // -1 because there is 1 \n we don't want between the start of two lines
+    m_cursor = std::min(m_cursor+sz+1, m_file_data.size);
+  } else {
+    throw std::runtime_error("Missing lines in index (getNextRawLine)");
   }
-  skipNextRawLines(line_num-m_curr_line);
-  LOG(3, "curr line aftger skipping %lu lines: %lu\n", line_num-m_curr_line, m_curr_line);
+  
+  m_curr_line++;
+  LOG_EXIT();
+  return sz;
 }
 
-size_t FilteredFileReader::readRawLine(char* s, uint32_t max_chars){
-  m_is.getline(s, max_chars);
-  // if line is "aaa\n" then "aaa\0" will be stored in s, but gcount still return 4
-  s[max_chars-1] = 0;
-  size_t nread = m_is.gcount();
-  // Reads until end-of-LINE and trahes everything
-  if(!m_is.eof() && m_is.fail()){
-    m_is.clear();
-    m_is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+size_t FilteredFileReader::getPrevRawLine(const char** s){
+  LOG_LOGENTRY(9, "FilteredFileReader::getPrevRawLine");
+  LOG_FCT(9, "m_curr_line=%lu,already indexed %lu lines\n", m_curr_line, m_file_data.line_index.size()); 
+
+  if(m_curr_line > m_file_data.line_index.size()){
+    throw std::runtime_error("Missing lines in index (getPrevRawLine)");
   }
-  incrCurrLine();
-  return nread;
+  if(m_curr_line == 0){
+    *s = nullptr;
+    return 0;
+  }
+  file_pos_t prev_line_begin = m_file_data.line_index[m_curr_line-1];
+  size_t sz = m_cursor - prev_line_begin - 1; // -1 since we don't count \n
+  m_cursor = prev_line_begin;
+  m_curr_line--;
+  LOG_EXIT();
+  return sz;
 }
 
 void FilteredFileReader::skipNextRawLines(line_t n){
-  
+  const char* s;
   while(n){
-    if(m_is.eof()){
-      incrCurrLine();
-      return;
-    }
-    m_is.getline(trash, TRASH_SIZE);
-    // if line is > than 1024 char, getline sets failbit
-    if(m_is.fail()) continue;
+    getNextRawLine(&s);    
     n--;
-    incrCurrLine();
   }
-}
-
-int FilteredFileReader::addFilteredOutGroup(line_t stt, line_t end, uint64_t idx){
-  // Want to just insert but might need to merge left/right/both
-  LOG_ENTRY("FilteredFileReader::addFilteredOutGroup");
-  LOG_FCT(5, "Adding filtered out group [%llu, %llu] at id %llu\n", stt, end, idx);
-  bool need_left_merge = idx > 0 && stt <= m_filtered_out_lines[idx-1].second + 1;
-  bool need_right_merge = idx + 1 < m_filtered_out_lines.size() && end >= m_filtered_out_lines[idx].first - 1;
-
-  if(need_left_merge && need_right_merge){
-    m_filtered_out_lines[idx-1].second = m_filtered_out_lines[idx].second;
-    m_filtered_out_lines.erase(m_filtered_out_lines.begin() + idx);
-    return idx-1;
-  } else if (need_left_merge) {
-    m_filtered_out_lines[idx-1].second = end;
-    return idx-1;
-  } else if (need_right_merge) {
-    m_filtered_out_lines[idx].first = stt;
-    return idx;
-  } else {
-    m_filtered_out_lines.emplace(m_filtered_out_lines.begin() + idx, std::make_pair(stt, end));
-    return idx;
-  }
-  
 }
 
 void FilteredFileReader::seekRawLine(line_t num){
-  line_t ncp = num / m_checkpoint_dist;
-  // TODO allow reading backwards and evaluate time gains
-  if(ncp < m_checkpoints.size()){
-    if(m_curr_line > num  || m_curr_line < ncp*m_checkpoint_dist){
-      goToCheckpoint(ncp);
-    }
-  } else {
-    // m_checkpoint is always at least size 1
-    goToCheckpoint(m_checkpoints.size()-1);
-  }
-  skipNextRawLines(num-m_curr_line);
+  const char* s;
+  jumpToLine(std::min(num, m_file_data.line_index.size()-1));
+  while(num >= m_file_data.line_index.size()){
+    getNextRawLine(&s);
+  } 
+  m_curr_line = num;
+  m_cursor = m_file_data.line_index[num];
 }
 
-size_t FilteredFileReader::getNextValidLine(char* dest, ProcessedLine& pl, line_t stop_at_line){
-  LOG_LOGENTRY(10, "FilteredFileReader::getNextValidLine");
-  LOG_FCT(10, "Searching for next valid line from %lu up to %lu\n",  m_curr_line, stop_at_line);
+bool FilteredFileReader::getNextValidLine(ProcessedLine& pl){
+  LOG_LOGENTRY(9, "FilteredFileReader::getNextValidLine");
+  size_t numof_tested_lines = m_filtered_file_data->line_passes.size();
+  LOG_FCT(9, "Searching for next valid line from %lu (already indexed %llu , and tested %llu)\n",  m_curr_line, m_file_data.line_index.size(), numof_tested_lines);
 
-  if(m_curr_line >= stop_at_line) {LOG_EXIT(); return 0;}
+  if(m_cursor >= m_file_data.size) {LOG_EXIT(); return false;}
 
-  // TODO Binary search
-  size_t i = 0;
-  while(i < m_filtered_out_lines.size() && m_curr_line > m_filtered_out_lines[i].second){
-    i++;
-  }
-  if(i == m_filtered_out_lines.size()){
-    // We are exploring uncharted territory in the file
-    // Cannot move forward
-  } else {
-    // here we know that curr_line <= filtered_lines[i].end AND curr_line > filtered_line[i-1].end
-    if(m_curr_line >= m_filtered_out_lines[i].first){
-      // Here is a block of line, that was already processed once and we know doesnt pass the filter
-      // Just skip ahead
-      if(m_filtered_out_lines[i].second >= stop_at_line){
-        // Don't move cursor?
-        LOG_EXIT();
-        return 0;
-      }
-      seekRawLine(m_filtered_out_lines[i].second + 1);
-      
-      // used later
-      i++;
-    } else {
-      // We are on a line that doesn't belong to any known filter_out groups
-      // Cannot move forward
-    }    
-  }
-  line_t fo_end, fo_begin = m_curr_line;
-  bool lb = i == m_filtered_out_lines.size();
-  std::streampos line_stt;
-  while(!m_is.eof() && (m_curr_line < stop_at_line)){
-    line_stt = m_is.tellg();
-    fo_end = (m_curr_line == 0) ? 0 : m_curr_line -1;
-    
-    LOG_FCT(10, "Looking at line number %llu (streampos: %lld) filtered out start and end: %llu, %llu\n", m_curr_line, line_stt, fo_begin, fo_end);
-    size_t nread = readRawLine(dest, m_max_chars_per_line);
-    LOG_FCT(10, "Read %llu chars, line is well formated: %d, line content is \"%s\"\n", nread, pl.well_formated, dest);
-    
-    pl.set_data(m_curr_line-1, dest, nread, m_line_parser, line_stt);
-    if(m_filter == nullptr) LOG_FCT(10, "No filter, will go through\n");
-    else LOG_FCT(10, "Passes filter=%d\n", m_filter->passes(&pl));
-    if( (m_accept_bad_format && !pl.well_formated) 
-        || m_filter == nullptr || m_filter->passes(&pl)){
-      if(fo_end > fo_begin){ // Since intervals are [incl; incl], could add new block on ">=", but let's not care about single lines
-        addFilteredOutGroup(fo_begin, fo_end, i);
-      }
+
+  assert(m_curr_line <= numof_tested_lines);
+
+  const char* s;
+  while(m_curr_line < numof_tested_lines){
+    LOG_FCT(9, "Curr line (%llu) already explored moving forward...\n", m_curr_line);
+    if(m_filtered_file_data->line_passes[m_curr_line]){
+      LOG_FCT(9, "line %d matches, stopping...\n", m_curr_line);
+      size_t line_size = getNextRawLine(&s);
+      pl.set_data(m_curr_line-1, s, line_size, m_config->parser.get(), m_cursor);
       LOG_EXIT();
-      return nread;
+      return true;
     }
-    // Line is NOT valid here
-    fo_end++;
-    if(!lb && fo_end + 1 >= m_filtered_out_lines[i].first){
+    getNextRawLine(&s);
+  }
+
+  if(m_curr_line == numof_tested_lines){
+    LOG_FCT(9, "Need to explore new lines\n");
+    size_t line_size;
+    do {
+      line_size = getNextRawLine(&s);
+
+      if(s == nullptr){
+        LOG_FCT(1, "reached eof, stoping\n");
+        return false;
+      }
+      LOG_FCT(9, "Not at line %llu (out of %llu indexed)\n", m_curr_line, m_file_data.line_index.size());
+      if(m_file_data.line_index.size() == m_curr_line){ // Curr_line is at beginning of "next line"
+        LOG_FCT(9, "New line indexable!!!\n");
+        m_file_data.line_index.push_back(m_cursor);
+      }
+      else if(m_curr_line > m_file_data.line_index.size() )
+        throw std::runtime_error("SKipped lines index");
       
-      if(m_filtered_out_lines[i].second >= stop_at_line){
-        // Don't move cursor?
-        LOG_EXIT();
-        return 0;
-      }
 
-      i = 1 + addFilteredOutGroup(fo_begin, fo_end, i);
-      lb = i == m_filtered_out_lines.size();
-      seekRawLine(m_filtered_out_lines[i-1].second + 1);
-      fo_begin = m_curr_line;
-    }
+      pl.set_data(m_curr_line-1, s, line_size, m_config->parser.get(), m_cursor);
+      m_filtered_file_data->line_passes.push_back((!pl.well_formated && m_config->accept_bad_format) || m_config->filter == nullptr || m_config->filter->passes(&pl));
+      LOG_FCT(9, "Explored a new line, curr now at %llu, indexed %llu lines\n", m_curr_line, m_file_data.line_index.size());
+    
+    } while(m_filtered_file_data->line_passes.back() == false);
+    LOG_EXIT();
+    return m_filtered_file_data->line_passes.back();
+  } else {
+    throw std::runtime_error("Cannot call getNextValidLine when m_curr_line is in uncharted territory");
   }
-  LOG_EXIT();
-  return 0;
 }
 
 
 
 
-size_t FilteredFileReader::getPreviousValidLine(char* dest, ProcessedLine& pl){
-  // Since we can't really read lines backwards, lets optimize a bit
-  // We go back (one checkpoint at a time) and read all the lines still unread until curr_line
-  // We store all the valid lines we find (usually one previous call is followed by another)
-  // The following static variables are here for this
-  
-  // Needs to at least be greater than m_checkpoint_dist to simplify some logic
-  LOG_LOGENTRY(1, "FilteredFileReader::getPreviousValidLine");
-  LOG_FCT(5, "Searching previous valid line from %lu\n", m_curr_line);
-  //const size_t max_lines_stored = 3*m_checkpoint_dist;
+bool FilteredFileReader::getPreviousValidLine(ProcessedLine& pl){
+  while(m_curr_line > 0){
+    m_curr_line--;
+    m_cursor = m_file_data.line_index[m_curr_line];
+    if(m_filtered_file_data->line_passes[m_curr_line]){
+      const char* s;
+      size_t line_size = getNextRawLine(&s);
+      pl.set_data(m_curr_line-1, s, line_size, m_config->parser.get(), m_cursor);
 
-  line_t& searched_from = m_cached_previous.searched_from;
-  line_t& searched_to = m_cached_previous.searched_to;
-  std::deque<ProcessedLine>& valid_lines = m_cached_previous.valid_lines;
-  
-  // printf("Looking for valid line before %lu, has ans for [%lu, %lu]\n", m_curr_line, searched_to, searched_from);
-  // printf("Lines in this interval are:\n");
-  // for( int i = 0; i < valid_lines.size(); i++){
-  //   printf("valid_line[%d] = %s\n", i, valid_lines[i].raw_line.data());
-  // }
-
-  // higher, as in the document, meaning line count lower
-  bool searching_from_higher = false;
-  if(m_curr_line <= searched_from && valid_lines.size() > 0){
-    if(m_curr_line < searched_to){
-      // Requested from too high, don't know any valid lines
-      searching_from_higher = true;
-    } else {
-      for(auto itt = valid_lines.end()-1; itt >= valid_lines.begin(); itt--){
-        if(m_curr_line > itt->line_num){
-          // Place cursor at beginning of line
-          m_is.clear();
-          m_is.seekg(itt->stt_pos);
-          m_curr_line = itt->line_num;
-
-          //! We dont want to read next line as this call might be call in chain and depends on m_curr_line
-
-          // Copy data
-          pl = ProcessedLine(*itt, dest, m_max_chars_per_line);
-          LOG_FCT(5, "Found processed line in cache %lu:%s\n", pl.line_num, pl.raw_line.data());
-          LOG_EXIT();
-          return pl.raw_line.size();
-        }
-      }
+      // Move cursor to beginning of line we just parsed, undoing getNextRawLine
+      m_curr_line--;
+      m_cursor = m_file_data.line_index[m_curr_line];
+      return true;
     }
   }
-  line_t pcp = m_curr_line / m_checkpoint_dist;
-  line_t begin_line = m_curr_line;
-  line_t line_stop_search = m_curr_line;
-  goToCheckpoint(pcp);
-  line_t highest_line_searched = m_curr_line;
-  bool found_valid = false;
-  
-  std::deque<ProcessedLine> new_findings;
-
-  char* tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
-  LOG_FCT(1, "Malloced first raw line at %p\n", tmpdest);
-  ProcessedLine tmp_pl;
-  
-  while (1) {
-    if(tmpdest == nullptr) {
-      tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
-      LOG(1, "Malloced raw line at %p\n", tmpdest);
-    }
-    size_t nread = getNextValidLine(tmpdest, tmp_pl, line_stop_search);
-    if(nread != 0){
-      found_valid = true;
-      new_findings.emplace_back(tmp_pl);
-      // only referece to the char array is now in the string_view of ProcessedLine
-      // MUST NOT FORGET TO FREE AT SOME POINT
-      tmpdest = nullptr;
-    } else {
-      // Couldn't read anything, reached end of search space (eol or line_limit)
-      if(found_valid){
-        // We are searching outside the range that was previously stored ([`searched_from`; `searched_to`])
-        // If those results are "not too far", we might be able to keep them by
-        // searching the entire space between the current search space and the already searched space
-        // This will take time but might save more later down the line
-        // The furthest we are, the more time it might take, need to chose between
-        //    1. Take a lot of time but keep old results
-        //    2. Discard old results stop now
-        // The limit between the two is chosen arbitrarily atm
-        line_t dist_to_old_results;
-        line_t from_line, to_line;
-        if(searching_from_higher){
-          dist_to_old_results = searched_to - begin_line;
-          from_line = begin_line; 
-          to_line = searched_to;
-        } else {
-          dist_to_old_results = highest_line_searched - searched_from;
-          from_line = searched_from; 
-          to_line = highest_line_searched;
-        }
-        if(dist_to_old_results < 3*m_checkpoint_dist){
-          // Try to keep old results
-          seekRawLine(from_line);
-          std::deque<ProcessedLine> reversed_new_findings;
-          while(1){
-            if(tmpdest == nullptr) {
-              tmpdest = (char*) malloc(m_max_chars_per_line * sizeof(char));
-              LOG(1, "Malloced raw line at %p\n", tmpdest);
-            }
-            nread = getNextValidLine(tmpdest, tmp_pl, to_line);
-            if(nread == 0){
-              break;
-            } else {
-
-              if(searching_from_higher){
-                new_findings.emplace_back(tmp_pl);
-              } else {
-                reversed_new_findings.emplace_back(tmp_pl);
-              }
-              tmpdest = nullptr;
-            }
-          }
-          if(!searching_from_higher){
-            while(!reversed_new_findings.empty()){
-              new_findings.push_front(reversed_new_findings.back());
-              reversed_new_findings.pop_back();
-            }
-          }
-          // printf("Joining knows lines to news ones, dir %d\n", searching_from_higher);
-          // printf("New lines are: \n");
-          // for(int nlid = 0; nlid < new_findings.size(); nlid++){
-          //   printf("new_finding[%d] = %s\n", nlid, new_findings[nlid].raw_line.data());
-          // }
-          if(searching_from_higher){
-            while(!new_findings.empty()){
-              valid_lines.emplace_front(new_findings.back());
-              new_findings.pop_back();
-            }
-            searched_to = highest_line_searched;
-          } else {
-            while(!new_findings.empty()){
-              valid_lines.emplace_back(new_findings.front());
-              new_findings.pop_front();
-            }
-            searched_from = begin_line;
-          }
-        
-        } else {
-          // The two search spaces are too far, discard old results
-          LOG(1, "-----------------------------------------------\n");
-          while(!valid_lines.empty()){
-            // Free all our tmpdests
-            for(size_t i = 0; i < valid_lines.size(); i++){
-              LOG(1, "valid line id %d points to %p\n", i, valid_lines[i].raw_line.data());
-            }
-            LOG(1, "Freeing valid line %p\n", valid_lines.back().raw_line.data());
-            free((char*) valid_lines.back().raw_line.data());
-            valid_lines.pop_back();
-          }
-          // we are sure that new findings' size < max_vlaid_lines so dont do anything
-          valid_lines = std::move(new_findings);
-          searched_from = begin_line;
-          searched_to = highest_line_searched;
-
-        }
-        LOG(1, "Freeing tmpdest %p after found valid\n", tmpdest);
-        if(tmpdest != nullptr){
-          free(tmpdest);
-          tmpdest = nullptr;
-        }
-        break;
-      } 
-      LOG(1, "Freeing tmpdest %p after NOT found valid\n", tmpdest);
-      if(tmpdest != nullptr){
-        free(tmpdest);
-        tmpdest = nullptr;
-      }
-      // Search one checkpoint higher if possible
-      if(pcp == 0){
-        // Already searched up to top, found no match...
-        LOG_EXIT();
-        return 0;
-      }
-      line_stop_search = pcp * m_checkpoint_dist;
-      pcp--;
-      goToCheckpoint(pcp);
-      highest_line_searched = m_curr_line;
-    }
-  }
-  // This condition should never be triggered, but let's be sure
-  if(!found_valid) return 0;
-
-  // We know that the value is somewhere is the store now, easiest way to find it, call the function again
-  // OK to set m_curr_line, without seeking as will be reset with ans in the store
-  m_curr_line = begin_line;
-  return getPreviousValidLine(dest, pl);
-  
-}
-
-
-void FilteredFileReader::invalidateCachedResults(){
-  m_cached_previous.searched_from = m_cached_previous.searched_to = 0;
-  std::deque<ProcessedLine>& valid_lines = m_cached_previous.valid_lines;
-  while(!valid_lines.empty()){
-    while(!valid_lines.empty()){
-      // Free all our tmpdests
-      free((char*) valid_lines.back().raw_line.data());
-      valid_lines.pop_back();
-    }
-  }
+  return false;  
 }

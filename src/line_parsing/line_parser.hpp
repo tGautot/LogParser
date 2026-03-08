@@ -4,13 +4,13 @@
 #include "parsing_basics.hpp"
 #include "parsing_data.hpp"
 
-#include <iostream>
 #include <vector>
+#include <memory>
 
 class Parser {
 public:
   
-  static Parser* fromLineFormat(LineFormat* lf);
+  static std::shared_ptr<Parser> fromLineFormat(std::unique_ptr<LineFormat> lf);
   ~Parser();
 
   //void set_filter()
@@ -20,7 +20,7 @@ public:
 
   bool parseLine(std::string_view line, ParsedLine* ret);
 
-  LineFormat* format;
+  std::unique_ptr<LineFormat> format;
 private:
   std::vector<parse_instruction_t*> parsing_routine;
 };

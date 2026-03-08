@@ -1,6 +1,7 @@
 #ifndef LINE_FORMAT_HPP
 #define LINE_FORMAT_HPP
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <map>
@@ -85,6 +86,11 @@ public:
   int nint, ndbl, nchr, nstr;
 
   LineFormat() : nint(0), ndbl(0), nchr(0), nstr(0){}
+  ~LineFormat(){
+    for(auto field : fields){
+      delete field;
+    }
+  }
 
   int getNIntFields() const { return nint; };
   int getNDoubleFields() const { return ndbl; };
@@ -98,6 +104,7 @@ public:
       return nullptr;
   }
 
+  // Takes ownership of linefield
   void addField(LineField* lf) {
     fields.push_back(lf);
     if(lf->name != ""){
@@ -154,10 +161,10 @@ public:
     }
   }
 
-  static LineFormat* fromFormatString(std::string fmt_str){
+  static std::unique_ptr<LineFormat> fromFormatString(std::string fmt_str){
     // TODO Improve...
     
-    LineFormat* lf = new LineFormat();
+    std::unique_ptr<LineFormat> lf = std::make_unique<LineFormat>();
     
     // Fmt string might look something like this
     // {INT:time}-{STR:day} {DBL} [{STR:func}:{INT:linenum}] {STR:freetext}

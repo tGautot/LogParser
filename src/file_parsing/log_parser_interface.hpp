@@ -14,15 +14,13 @@
 
 struct LineBlock {
   cyclic_deque<ProcessedLine> lines;
-  cyclic_deque<char*> raw_lines;
-
   
   // Local line number, i.e. nth filtered line
   line_t first_line_local_id;
   bool contains_last_line = false;
 
-  LineBlock(size_t max_size):lines(max_size), raw_lines(max_size){};
-  LineBlock(LineBlock&& tomove): lines(std::move(tomove.lines)), raw_lines(std::move(tomove.raw_lines)){
+  LineBlock(size_t max_size):lines(max_size){};
+  LineBlock(LineBlock&& tomove): lines(std::move(tomove.lines)){
     contains_last_line = tomove.contains_last_line;
     first_line_local_id = tomove.first_line_local_id;
   }
@@ -46,7 +44,6 @@ typedef struct {
 class LogParserInterface {
 private:
   line_t  known_first_line=0;
-  char* raw_line_storage;
   FilteredFileReader* ffr;
 
   void print_lines_in_block();
@@ -60,10 +57,10 @@ public:
   uint32_t block_size;
   LineBlock block;
   line_t known_last_line=LINE_T_MAX;
-  LogParserInterface(std::string fname, LineFormat* fmt, std::shared_ptr<LineFilter> fltr, int bsize = 1000);
+  LogParserInterface(std::string fname, std::unique_ptr<LineFormat> fmt, std::shared_ptr<LineFilter> fltr, int bsize = 1000);
   ~LogParserInterface();
 
-  void setLineFormat(LineFormat* lf, line_t global_ancore_line);
+  void setLineFormat(std::unique_ptr<LineFormat> lf, line_t global_ancore_line);
   LineFormat* getLineFormat();
   void setFilter(std::shared_ptr<LineFilter> lf, line_t global_ancore_line = 1);
   std::shared_ptr<LineFilter> getFilter();

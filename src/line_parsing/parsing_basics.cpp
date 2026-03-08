@@ -33,6 +33,8 @@ int parse_chr(const char** s, _ChrFieldOption* p, void* res){
   return 0;
 }
 
+#include <iostream>
+
 int parse_str(const char** s, _StrFieldOption* p, void* res){
   //std::cout << "Parsing STR, stop type " << p->stop_type << ", delim " << p->delim << std::endl;
   int nchar = 0;
@@ -40,7 +42,7 @@ int parse_str(const char** s, _StrFieldOption* p, void* res){
     nchar = p->nchar;
   }
   if(p->stop_type == StrFieldStopType::DELIM){
-    while((*s)[nchar] != p->delim && (*s)[nchar] != 0){
+    while((*s)[nchar] != p->delim && (*s)[nchar] != 0 && (*s)[nchar] != '\n'){
       //std::cout << "Now at char " << nchar << ": " << (*s)[nchar] << std::endl; 
       nchar++;
     }

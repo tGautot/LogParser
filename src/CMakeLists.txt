@@ -11,9 +11,6 @@ target_link_libraries(log_parser
         line_parsing
         file_parsing
 )
-        
-add_executable(lp main.cpp)
-target_link_libraries(lp PUBLIC log_parser)
 
 
 add_subdirectory(frontends)

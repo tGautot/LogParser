@@ -1,4 +1,5 @@
 #include "log_parser_terminal.hpp"
+#include "line_format.hpp"
 #include "processed_line.hpp"
 
 #include <cstddef>
@@ -118,7 +119,7 @@ static void setupTerm(term_state_t stt){
 
 
 LogParserTerminal::LogParserTerminal(std::string& filename){
-LineFormat* lf = new LineFormat();
+  std::unique_ptr<LineFormat> lf = std::make_unique<LineFormat>();
   lf->addField(new LineIntField("Date"));
   lf->addField(new LineChrField("", ' ', true));
   lf->addField(new LineIntField("Time"));
@@ -132,7 +133,7 @@ LineFormat* lf = new LineFormat();
   lf->addField(new LineChrField("", ' ', true));
   lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
   
-  lpi = new LogParserInterface(filename, lf, nullptr);
+  lpi = new LogParserInterface(filename, std::move(lf), nullptr);
   setupTerm(term_state);
   atexit(rollbackTerm);
   term_state.cx = 4;

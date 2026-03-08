@@ -2,8 +2,10 @@
 
 #include <cstdlib>
 
+#include "logging.hpp"
 
 ParsedLine::ParsedLine(LineFormat* fmt){
+  //LOG(1, "nint=%d,ndbl=%d,nchr=%d,nstr=%d\n", fmt->nint, fmt->ndbl, fmt->nchr, fmt->nstr);
   int_fields = new int64_t[fmt->nint]; //(int64_t*) malloc(fmt.nint * sizeof(int64_t));
   dbl_fields = new double[fmt->ndbl];//(double*) malloc(fmt.ndbl * sizeof(double));
   chr_fields = new char[fmt->nchr];//(char*) malloc(fmt.nchr * sizeof(char));

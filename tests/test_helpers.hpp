@@ -9,12 +9,16 @@
 
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <string_view>
 
 extern "C" {
   #include "logging.h"
 }
+
+#define SV_TO_STR(sv) std::string(sv.data(), sv.length())
+#define STRING_VIEW_PRINT(sv) static_cast<int>(sv.length()), sv.data()
 
 #define TEST_FOLDER "../../tests/"
 
@@ -29,8 +33,8 @@ inline void teardown() {
 
 // The default log format used across most integration tests (for data/sample.log):
 //   {INT:Date} {INT:Time} {STR:Level} {CHR:, ,1}:{CHR:,.,1}{STR:Source}:{CHR:, ,1}{STR:Mesg}
-inline LineFormat* getDefaultLineFormat() {
-  LineFormat* lf = new LineFormat();
+inline std::unique_ptr<LineFormat> getDefaultLineFormat() {
+  std::unique_ptr<LineFormat> lf = std::make_unique<LineFormat>();
   lf->addField(new LineIntField("Date"));
   lf->addField(new LineChrField("", ' ', true));
   lf->addField(new LineIntField("Time"));
@@ -44,12 +48,6 @@ inline LineFormat* getDefaultLineFormat() {
   lf->addField(new LineChrField("", ' ', true));
   lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
   return lf;
-}
-
-inline void freeLineFormat(LineFormat* lf) {
-  for (int i = 0; i < (int)lf->fields.size(); i++)
-    delete lf->fields[i];
-  delete lf;
 }
 
 // The 10 INFO lines from sample.log (used by FilteredFileReader and interface tests)

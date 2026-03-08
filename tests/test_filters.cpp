@@ -15,13 +15,8 @@
 
 // Format: {INT:Val} {STR:Name}
 // Sample line: "100 hello"  →  Val=100, Name="hello"
-static LineFormat* makeSimpleFormat() {
+static std::unique_ptr<LineFormat> makeSimpleFormat() {
   return LineFormat::fromFormatString("{INT:Val} {STR:Name}");
-}
-
-static void freeFormat(LineFormat* lf) {
-  for (auto* f : lf->fields) delete f;
-  delete lf;
 }
 
 // NOTE: RawLineFilter and LineNumberFilter are not tested here because
@@ -34,64 +29,62 @@ static void freeFormat(LineFormat* lf) {
 // ──────────────────────────────────────────────
 
 TEST_CASE("FieldFilter - int comparisons") {
-  LineFormat* lf = makeSimpleFormat();
-  Parser* parser  = Parser::fromLineFormat(lf);
-  ParsedLine pl(lf);
+  std::unique_ptr<LineFormat> lf = makeSimpleFormat();
+  std::shared_ptr<Parser> parser  = Parser::fromLineFormat(std::move(lf));
+  ParsedLine pl(parser->format.get());
   std::string line = "100 hello";
   REQUIRE(parser->parseLine(line, &pl));
 
   SECTION("EQUAL") {
     int64_t v = 100;
-    FieldFilter hit(lf, "Val", FilterComparison::EQUAL, &v);
+    FieldFilter hit(parser->format.get(), "Val", FilterComparison::EQUAL, &v);
     REQUIRE(hit.passes(&pl));
 
     v = 99;
-    FieldFilter miss(lf, "Val", FilterComparison::EQUAL, &v);
+    FieldFilter miss(parser->format.get(), "Val", FilterComparison::EQUAL, &v);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("SMALLER") {
     int64_t v = 101;
-    FieldFilter hit(lf, "Val", FilterComparison::SMALLER, &v);
+    FieldFilter hit(parser->format.get(), "Val", FilterComparison::SMALLER, &v);
     REQUIRE(hit.passes(&pl)); // 100 < 101
 
     v = 100;
-    FieldFilter miss(lf, "Val", FilterComparison::SMALLER, &v);
+    FieldFilter miss(parser->format.get(), "Val", FilterComparison::SMALLER, &v);
     REQUIRE_FALSE(miss.passes(&pl)); // 100 < 100 → false
   }
 
   SECTION("SMALLER_EQ") {
     int64_t v = 100;
-    FieldFilter hit(lf, "Val", FilterComparison::SMALLER_EQ, &v);
+    FieldFilter hit(parser->format.get(), "Val", FilterComparison::SMALLER_EQ, &v);
     REQUIRE(hit.passes(&pl)); // 100 <= 100
 
     v = 99;
-    FieldFilter miss(lf, "Val", FilterComparison::SMALLER_EQ, &v);
+    FieldFilter miss(parser->format.get(), "Val", FilterComparison::SMALLER_EQ, &v);
     REQUIRE_FALSE(miss.passes(&pl)); // 100 <= 99 → false
   }
 
   SECTION("GREATER") {
     int64_t v = 99;
-    FieldFilter hit(lf, "Val", FilterComparison::GREATER, &v);
+    FieldFilter hit(parser->format.get(), "Val", FilterComparison::GREATER, &v);
     REQUIRE(hit.passes(&pl)); // 100 > 99
 
     v = 100;
-    FieldFilter miss(lf, "Val", FilterComparison::GREATER, &v);
+    FieldFilter miss(parser->format.get(), "Val", FilterComparison::GREATER, &v);
     REQUIRE_FALSE(miss.passes(&pl)); // 100 > 100 → false
   }
 
   SECTION("GREATER_EQ") {
     int64_t v = 100;
-    FieldFilter hit(lf, "Val", FilterComparison::GREATER_EQ, &v);
+    FieldFilter hit(parser->format.get(), "Val", FilterComparison::GREATER_EQ, &v);
     REQUIRE(hit.passes(&pl)); // 100 >= 100
 
     v = 101;
-    FieldFilter miss(lf, "Val", FilterComparison::GREATER_EQ, &v);
+    FieldFilter miss(parser->format.get(), "Val", FilterComparison::GREATER_EQ, &v);
     REQUIRE_FALSE(miss.passes(&pl)); // 100 >= 101 → false
   }
 
-  delete parser;
-  freeFormat(lf);
 }
 
 // ──────────────────────────────────────────────
@@ -99,98 +92,96 @@ TEST_CASE("FieldFilter - int comparisons") {
 // ──────────────────────────────────────────────
 
 TEST_CASE("FieldFilter - string comparisons") {
-  LineFormat* lf  = makeSimpleFormat();
-  Parser* parser  = Parser::fromLineFormat(lf);
-  ParsedLine pl(lf);
+  std::unique_ptr<LineFormat> lf  = makeSimpleFormat();
+  std::shared_ptr<Parser> parser  = Parser::fromLineFormat(std::move(lf));
+  ParsedLine pl(parser->format.get());
   std::string line = "100 hello";
   REQUIRE(parser->parseLine(line, &pl));
 
   SECTION("EQUAL") {
     std::string v = "hello";
-    FieldFilter hit(lf, "Name", FilterComparison::EQUAL, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::EQUAL, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "world";
-    FieldFilter miss(lf, "Name", FilterComparison::EQUAL, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::EQUAL, v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("SMALLER - lexicographic") {
     std::string v = "world"; // "hello" < "world"
-    FieldFilter hit(lf, "Name", FilterComparison::SMALLER, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::SMALLER, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "apple"; // "hello" < "apple" → false
-    FieldFilter miss(lf, "Name", FilterComparison::SMALLER, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::SMALLER, v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("SMALLER_EQ") {
     std::string v = "hello"; // "hello" <= "hello"
-    FieldFilter hit(lf, "Name", FilterComparison::SMALLER_EQ, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::SMALLER_EQ, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "apple"; // "hello" <= "apple" → false
-    FieldFilter miss(lf, "Name", FilterComparison::SMALLER_EQ, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::SMALLER_EQ, v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("GREATER - lexicographic") {
     std::string v = "apple"; // "hello" > "apple"
-    FieldFilter hit(lf, "Name", FilterComparison::GREATER, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::GREATER, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "world"; // "hello" > "world" → false
-    FieldFilter miss(lf, "Name", FilterComparison::GREATER, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::GREATER, v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("GREATER_EQ") {
     std::string v = "hello"; // "hello" >= "hello"
-    FieldFilter hit(lf, "Name", FilterComparison::GREATER_EQ, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::GREATER_EQ, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "zoo"; // "hello" >= "zoo" → false
-    FieldFilter miss(lf, "Name", FilterComparison::GREATER_EQ, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::GREATER_EQ, v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("CONTAINS") {
     std::string v = "ell"; // "hello" contains "ell"
-    FieldFilter hit(lf, "Name", FilterComparison::CONTAINS, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CONTAINS, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "world";
-    FieldFilter miss(lf, "Name", FilterComparison::CONTAINS, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CONTAINS, v2);
     REQUIRE_FALSE(miss.passes(&pl));
 
     std::string v3 = "hello"; // exact match also counts as CONTAINS
-    FieldFilter exact(lf, "Name", FilterComparison::CONTAINS, v3);
+    FieldFilter exact(parser->format.get(), "Name", FilterComparison::CONTAINS, v3);
     REQUIRE(exact.passes(&pl));
   }
 
   SECTION("BEGINS_WITH") {
     std::string v = "hel";
-    FieldFilter hit(lf, "Name", FilterComparison::BEGINS_WITH, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::BEGINS_WITH, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "ello";
-    FieldFilter miss(lf, "Name", FilterComparison::BEGINS_WITH, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::BEGINS_WITH, v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("ENDS_WITH") {
     std::string v = "llo";
-    FieldFilter hit(lf, "Name", FilterComparison::ENDS_WITH, v);
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::ENDS_WITH, v);
     REQUIRE(hit.passes(&pl));
 
     std::string v2 = "hel";
-    FieldFilter miss(lf, "Name", FilterComparison::ENDS_WITH, v2);
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::ENDS_WITH, v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
-  delete parser;
-  freeFormat(lf);
 }
 
 // ──────────────────────────────────────────────
@@ -199,64 +190,62 @@ TEST_CASE("FieldFilter - string comparisons") {
 
 TEST_CASE("FieldFilter - double comparisons") {
   // Format: {DBL:Score}  →  dbl_fields[0]
-  LineFormat* lf = LineFormat::fromFormatString("{DBL:Score}");
-  Parser* parser = Parser::fromLineFormat(lf);
-  ParsedLine pl(lf);
+  std::unique_ptr<LineFormat> lf = LineFormat::fromFormatString("{DBL:Score}");
+  std::shared_ptr<Parser> parser = Parser::fromLineFormat(std::move(lf));
+  ParsedLine pl(parser->format.get());
   std::string line = "3.14";
   REQUIRE(parser->parseLine(line, &pl));
 
   SECTION("EQUAL") {
     double v = 3.14;
-    FieldFilter hit(lf, "Score", FilterComparison::EQUAL, &v);
+    FieldFilter hit(parser->format.get(), "Score", FilterComparison::EQUAL, &v);
     REQUIRE(hit.passes(&pl));
 
     double v2 = 2.71;
-    FieldFilter miss(lf, "Score", FilterComparison::EQUAL, &v2);
+    FieldFilter miss(parser->format.get(), "Score", FilterComparison::EQUAL, &v2);
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
   SECTION("SMALLER") {
     double v = 4.0;
-    FieldFilter hit(lf, "Score", FilterComparison::SMALLER, &v);
+    FieldFilter hit(parser->format.get(), "Score", FilterComparison::SMALLER, &v);
     REQUIRE(hit.passes(&pl)); // 3.14 < 4.0
 
     double v2 = 3.14;
-    FieldFilter miss(lf, "Score", FilterComparison::SMALLER, &v2);
+    FieldFilter miss(parser->format.get(), "Score", FilterComparison::SMALLER, &v2);
     REQUIRE_FALSE(miss.passes(&pl)); // 3.14 < 3.14 → false
   }
 
   SECTION("SMALLER_EQ") {
     double v = 3.14;
-    FieldFilter hit(lf, "Score", FilterComparison::SMALLER_EQ, &v);
+    FieldFilter hit(parser->format.get(), "Score", FilterComparison::SMALLER_EQ, &v);
     REQUIRE(hit.passes(&pl)); // 3.14 <= 3.14
 
     double v2 = 3.0;
-    FieldFilter miss(lf, "Score", FilterComparison::SMALLER_EQ, &v2);
+    FieldFilter miss(parser->format.get(), "Score", FilterComparison::SMALLER_EQ, &v2);
     REQUIRE_FALSE(miss.passes(&pl)); // 3.14 <= 3.0 → false
   }
 
   SECTION("GREATER") {
     double v = 3.0;
-    FieldFilter hit(lf, "Score", FilterComparison::GREATER, &v);
+    FieldFilter hit(parser->format.get(), "Score", FilterComparison::GREATER, &v);
     REQUIRE(hit.passes(&pl)); // 3.14 > 3.0
 
     double v2 = 3.14;
-    FieldFilter miss(lf, "Score", FilterComparison::GREATER, &v2);
+    FieldFilter miss(parser->format.get(), "Score", FilterComparison::GREATER, &v2);
     REQUIRE_FALSE(miss.passes(&pl)); // 3.14 > 3.14 → false
   }
 
   SECTION("GREATER_EQ") {
     double v = 3.14;
-    FieldFilter hit(lf, "Score", FilterComparison::GREATER_EQ, &v);
+    FieldFilter hit(parser->format.get(), "Score", FilterComparison::GREATER_EQ, &v);
     REQUIRE(hit.passes(&pl)); // 3.14 >= 3.14
 
     double v2 = 4.0;
-    FieldFilter miss(lf, "Score", FilterComparison::GREATER_EQ, &v2);
+    FieldFilter miss(parser->format.get(), "Score", FilterComparison::GREATER_EQ, &v2);
     REQUIRE_FALSE(miss.passes(&pl)); // 3.14 >= 4.0 → false
   }
 
-  delete parser;
-  freeFormat(lf);
 }
 
 // ──────────────────────────────────────────────
@@ -264,14 +253,14 @@ TEST_CASE("FieldFilter - double comparisons") {
 // ──────────────────────────────────────────────
 
 TEST_CASE("LineFilter - invert()") {
-  LineFormat* lf  = makeSimpleFormat();
-  Parser* parser  = Parser::fromLineFormat(lf);
-  ParsedLine pl(lf);
+  std::unique_ptr<LineFormat> lf  = makeSimpleFormat();
+  std::shared_ptr<Parser> parser  = Parser::fromLineFormat(std::move(lf));
+  ParsedLine pl(parser->format.get());
   std::string line = "100 hello";
   REQUIRE(parser->parseLine(line, &pl));
 
   std::string val = "hello";
-  FieldFilter f(lf, "Name", FilterComparison::EQUAL, val);
+  FieldFilter f(parser->format.get(), "Name", FilterComparison::EQUAL, val);
 
   REQUIRE(f.passes(&pl));
   REQUIRE_FALSE(f.is_inverted());
@@ -284,8 +273,6 @@ TEST_CASE("LineFilter - invert()") {
   REQUIRE_FALSE(f.is_inverted());
   REQUIRE(f.passes(&pl));
 
-  delete parser;
-  freeFormat(lf);
 }
 
 // ──────────────────────────────────────────────
@@ -293,17 +280,17 @@ TEST_CASE("LineFilter - invert()") {
 // ──────────────────────────────────────────────
 
 TEST_CASE("CombinedFilter - all operators") {
-  LineFormat* lf  = makeSimpleFormat();
-  Parser* parser  = Parser::fromLineFormat(lf);
-  ParsedLine pl(lf);
+  std::unique_ptr<LineFormat> lf  = makeSimpleFormat();
+  std::shared_ptr<Parser> parser  = Parser::fromLineFormat(std::move(lf));
+  ParsedLine pl(parser->format.get());
   std::string line = "100 hello";
   REQUIRE(parser->parseLine(line, &pl));
 
   // f_pass: Val==100  → passes
   // f_fail: Val==999  → fails
   int64_t pass_val = 100, fail_val = 999;
-  auto f_pass = std::make_shared<FieldFilter>(lf, "Val", FilterComparison::EQUAL, &pass_val);
-  auto f_fail = std::make_shared<FieldFilter>(lf, "Val", FilterComparison::EQUAL, &fail_val);
+  auto f_pass = std::make_shared<FieldFilter>(parser->format.get(), "Val", FilterComparison::EQUAL, &pass_val);
+  auto f_fail = std::make_shared<FieldFilter>(parser->format.get(), "Val", FilterComparison::EQUAL, &fail_val);
 
   SECTION("AND: true  AND true  → true") {
     CombinedFilter f(f_pass, f_pass, BitwiseOp::AND);
@@ -373,37 +360,32 @@ TEST_CASE("CombinedFilter - all operators") {
     REQUIRE(f.passes(&pl));
   }
 
-  delete parser;
-  freeFormat(lf);
 }
 
 TEST_CASE("CombinedFilter - inverted combined filter") {
-  LineFormat* lf  = makeSimpleFormat();
-  Parser* parser  = Parser::fromLineFormat(lf);
-  ParsedLine pl(lf);
+  std::unique_ptr<LineFormat> lf  = makeSimpleFormat();
+  std::shared_ptr<Parser> parser  = Parser::fromLineFormat(std::move(lf));
+  ParsedLine pl(parser->format.get());
   std::string line = "100 hello";
   REQUIRE(parser->parseLine(line, &pl));
 
   int64_t pass_val = 100, fail_val = 999;
-  auto f_pass = std::make_shared<FieldFilter>(lf, "Val", FilterComparison::EQUAL, &pass_val);
-  auto f_fail = std::make_shared<FieldFilter>(lf, "Val", FilterComparison::EQUAL, &fail_val);
+  auto f_pass = std::make_shared<FieldFilter>(parser->format.get(), "Val", FilterComparison::EQUAL, &pass_val);
+  auto f_fail = std::make_shared<FieldFilter>(parser->format.get(), "Val", FilterComparison::EQUAL, &fail_val);
 
   CombinedFilter f(f_pass, f_fail, BitwiseOp::AND); // false
   REQUIRE_FALSE(f.passes(&pl));
   f.invert();
   REQUIRE(f.passes(&pl)); // inverted → true
 
-  delete parser;
-  freeFormat(lf);
 }
 
 TEST_CASE("CombinedFilter - FieldFilter unknown field throws") {
-  LineFormat* lf = makeSimpleFormat();
+  std::unique_ptr<LineFormat> lf = makeSimpleFormat();
   REQUIRE_THROWS_AS(
-    FieldFilter(lf, "DoesNotExist", FilterComparison::EQUAL, (void*)nullptr),
+    FieldFilter(lf.get(), "DoesNotExist", FilterComparison::EQUAL, (void*)nullptr),
     std::invalid_argument
   );
-  freeFormat(lf);
 }
 
 // ──────────────────────────────────────────────
