@@ -22,6 +22,7 @@ TEST_CASE("Basic Filtered File Reader") {
     while (ffr.getNextValidLine(pl) != 0) {
       std::cout << "Got next valid line: " << pl.raw_line << std::endl;
       REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+      REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
       count++;
     }
     REQUIRE(count == 10);
@@ -38,6 +39,7 @@ TEST_CASE("Basic Filtered File Reader") {
     int count = 9;
     while (ffr.getPreviousValidLine(pl) != 0) {
       REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+      REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
       count--;
     }
     REQUIRE(count == -1);
@@ -53,12 +55,14 @@ TEST_CASE("Basic Filtered File Reader") {
     int count = 0;
     while (ffr.getNextValidLine( pl) != 0) {
       REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+      REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
       count++;
     }
     REQUIRE(count == 10);
     while (ffr.getPreviousValidLine( pl) != 0) {
       count--;
       REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+      REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
     }
     REQUIRE(count == 0);
   }
@@ -75,6 +79,7 @@ TEST_CASE("Basic Filtered File Reader") {
     while (ffr.getPreviousValidLine(pl)) {
       LOG(1, "Got previous line %llu %.*s\n", pl.line_num, STRING_VIEW_PRINT(pl.raw_line));
       REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+      REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
       count--;
     }
     count++;
@@ -82,6 +87,7 @@ TEST_CASE("Basic Filtered File Reader") {
     while (ffr.getNextValidLine( pl)) {
       LOG(1, "Got next line %llu %.*s\n", pl.line_num, STRING_VIEW_PRINT(pl.raw_line));
       REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+      REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
       count++;
     }
     REQUIRE(count == 10);
@@ -345,6 +351,56 @@ TEST_CASE("FilteredFileReader::skipNextRawLines - advances exactly N raw lines")
     ffr.getNextValidLine(pl);
     REQUIRE(pl.line_num == (line_t)count_to_info_line(2)); // INFO line 2 at raw line 14
   }
-  
+
+  teardown();
+}
+
+// ──────────────────────────────────────────────
+// CRLF file handling
+// ──────────────────────────────────────────────
+
+TEST_CASE("FilteredFileReader - CRLF line endings, forward") {
+  setup();
+  std::unique_ptr<LineFormat> lf = getDefaultLineFormat();
+  std::string filename = TEST_FOLDER "data/sample_crlf.log";
+  std::string val = "INFO";
+  auto filter = std::make_shared<FieldFilter>(lf.get(), "Level", FilterComparison::EQUAL, &val);
+
+  FilteredFileReader ffr(filename, std::move(lf), filter);
+  ffr.m_config->accept_bad_format = false;
+  ProcessedLine pl;
+
+  int count = 0;
+  while (ffr.getNextValidLine(pl)) {
+    REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+    REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
+    count++;
+  }
+  REQUIRE(count == 10);
+
+  teardown();
+}
+
+TEST_CASE("FilteredFileReader - CRLF line endings, backward") {
+  setup();
+  std::unique_ptr<LineFormat> lf = getDefaultLineFormat();
+  std::string filename = TEST_FOLDER "data/sample_crlf.log";
+  std::string val = "INFO";
+  auto filter = std::make_shared<FieldFilter>(lf.get(), "Level", FilterComparison::EQUAL, &val);
+
+  FilteredFileReader ffr(filename, std::move(lf), filter);
+  ffr.m_config->accept_bad_format = false;
+  ProcessedLine pl;
+
+  while (ffr.getNextValidLine(pl)); // go to EOF
+
+  int count = 9;
+  while (ffr.getPreviousValidLine(pl)) {
+    REQUIRE(pl.line_num == (line_t)count_to_info_line(count));
+    REQUIRE(SV_TO_STR(pl.raw_line) == info_lines[count]);
+    count--;
+  }
+  REQUIRE(count == -1);
+
   teardown();
 }

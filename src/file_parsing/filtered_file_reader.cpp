@@ -132,6 +132,10 @@ size_t FilteredFileReader::getNextRawLine(const char** s){
   }
   
   m_curr_line++;
+  if(sz > 0 && (*s)[sz-1] == '\r'){
+    // To handle files with CRLF
+    sz--;
+  }
   LOG_EXIT();
   return sz;
 }
@@ -149,8 +153,13 @@ size_t FilteredFileReader::getPrevRawLine(const char** s){
   }
   file_pos_t prev_line_begin = m_file_data.line_index[m_curr_line-1];
   size_t sz = m_cursor - prev_line_begin - 1; // -1 since we don't count \n
+  *s = m_file_data.data + prev_line_begin;
   m_cursor = prev_line_begin;
   m_curr_line--;
+  if(sz > 0 && (*s)[sz-1] == '\r'){
+    // To handle files with CRLF
+    sz--;
+  }
   LOG_EXIT();
   return sz;
 }
