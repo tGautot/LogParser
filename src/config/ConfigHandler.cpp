@@ -26,12 +26,16 @@ ConfigHandler::ConfigHandler(){
 }
 
 bool is_profile_banner(const std::string& line, const std::string& profile){
+  LOG(3, "Is %s banner of %s?  pos=%d\n", line.data(), profile.data(), line.find("[[" + profile + "]]"));
   return line.find("[[" + profile + "]]") == 0;
 }
 
 void parse_profile(std::ifstream& stream, const std::string& profile){
+  LOG_FUNCENTRY(3, "parse_profile");
+  LOG_FCT(3, "profile=%s\n", profile.data());
   std::string line;
   while(getline(stream, line)){
+    LOG(3, "iter on line=%s\n", line.data());
     if(is_profile_banner(line, profile)){
       // Found the profile we want, look at the kv pairs
       while(getline(stream, line)){
@@ -40,7 +44,8 @@ void parse_profile(std::ifstream& stream, const std::string& profile){
         if(half == std::string::npos) continue;
         std::string k = line.substr(0, half);
         std::transform(k.begin(), k.end(), k.begin(), ::tolower);
-        std::string v = line.substr(half);
+        std::string v = line.substr(half+1);
+        LOG(3, "Value of %s is now %s\n", k.data(), v.data());
         kv[k] = v;
       }
       break;
@@ -73,11 +78,13 @@ void ConfigHandler::load(const std::string& profile){
   while(getline(cfs, line)){
     LOG_FCT(3, "cfg: %s\n", line.data());
   }
-
+  cfs.clear();
+  cfs.seekg(stt); 
 
   // Need to first load the common profile, then override with specified profile
   parse_profile(cfs, DEFAULT_PROFILE);
   
+  cfs.clear();
   cfs.seekg(stt);
 
   parse_profile(cfs, profile);

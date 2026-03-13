@@ -47,7 +47,7 @@ int main(int argc, char** argv){
   size_t slash_pos = filepath.find_last_of('/');
   std::string filename = filepath;
   if(slash_pos != std::string::npos){
-    filename = filepath.substr(slash_pos);
+    filename = filepath.substr(slash_pos+1);
   }
 
 
@@ -58,6 +58,8 @@ int main(int argc, char** argv){
   std::unique_ptr<LineFormat> line_format = LineFormat::fromFormatString(format_spec);
 
   LogParserTerminal lpt(filepath, std::move(line_format));
+  lpt.config.bg_col = cfg.get(CFG_BG_COLOR);
+  lpt.config.txt_col = cfg.get(CFG_TEXT_COLOR);
   // TODO load modules on the fly based on config
   // dlopen is fun, but should probably make python/lua bindings at some points
   CursorMoveModule cmm;
