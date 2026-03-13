@@ -161,7 +161,7 @@ public:
     }
   }
 
-  static std::unique_ptr<LineFormat> fromFormatString(std::string fmt_str){
+  static std::unique_ptr<LineFormat> fromFormatString(const std::string& fmt_str){
     // TODO Improve...
     
     std::unique_ptr<LineFormat> lf = std::make_unique<LineFormat>();

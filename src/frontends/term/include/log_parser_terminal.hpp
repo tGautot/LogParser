@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <string>
 
+#include "line_format.hpp"
 #include "terminal_state.hpp"
 #include "log_parser_interface.hpp"
 
@@ -32,7 +33,8 @@ public:
   std::string frame_str;
   LogParserInterface* lpi;
 
-  LogParserTerminal(std::string& filename);
+  LogParserTerminal(const std::string& filename);
+  LogParserTerminal(const std::string& filename, std::unique_ptr<LineFormat> line_format);
 
   std::vector<std::pair<std::string, user_action_t>> user_input_mappings;
   std::vector<ActionCallbackPtr> action_cbs;

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <string>
 
 extern "C"{
@@ -133,24 +134,10 @@ static void setupTerm(term_state_t stt){
 
 
 
+LogParserTerminal::LogParserTerminal(const std::string& filename) : LogParserTerminal(filename, nullptr){}
 
-
-LogParserTerminal::LogParserTerminal(std::string& filename){
-  std::unique_ptr<LineFormat> lf = std::make_unique<LineFormat>();
-  lf->addField(new LineIntField("Date"));
-  lf->addField(new LineChrField("", ' ', true));
-  lf->addField(new LineIntField("Time"));
-  lf->addField(new LineChrField("", ' ', true));
-  lf->addField(new LineStrField("Level", StrFieldStopType::DELIM, ' ', 0));
-  lf->addField(new LineChrField("", ' ', true));
-  lf->addField(new LineChrField("", ':', false));
-  lf->addField(new LineChrField("", '.', true));
-  lf->addField(new LineStrField("Source", StrFieldStopType::DELIM, ':', 0));
-  lf->addField(new LineChrField("", ':', false));
-  lf->addField(new LineChrField("", ' ', true));
-  lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
-  
-  lpi = new LogParserInterface(filename, std::move(lf), nullptr);
+LogParserTerminal::LogParserTerminal(const std::string& filename, std::unique_ptr<LineFormat> line_format){
+  lpi = new LogParserInterface(filename, std::move(line_format), nullptr);
   setupTerm(term_state);
   atexit(rollbackTerm);
   term_state.cx = 4;
