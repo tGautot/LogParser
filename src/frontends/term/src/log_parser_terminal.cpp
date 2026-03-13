@@ -180,13 +180,22 @@ void LogParserTerminal::drawRows(){
     const ProcessedLine* pl = term_state.displayed_pls[i];
     if(pl != nullptr){
       fetched_line = pl->raw_line;
-      LOG_FCT(9, "Adding to display line: '%s'\n", std::string(fetched_line).data());
+      LOG_FCT(9, "Adding to display line(%d): '%s'\n", pl->well_formated, std::string(fetched_line).data());
       std::string line_num_str = std::to_string(pl->line_num);
       // Spaces before linenum, if needed
+      if(!pl->well_formated){
+        frame_str += ansi("bg_red");
+      }
+
       if(line_num_str.size()+2 < term_state.info_col_size) {
         frame_str += std::string(term_state.info_col_size - line_num_str.size() - 2, ' ');
       }
-      frame_str += ansi("fg_white") + line_num_str + "~ " + ansi("fg_reset");
+
+      frame_str += ansi("fg_white") + line_num_str + "~ " + ansi("fg_" + config.txt_col);
+
+      if(!pl->well_formated){
+        frame_str += ansi("bg_" + config.bg_col);
+      }
 
       std::string formatted_line = std::string(fetched_line);
       formatted_line.erase(std::remove(formatted_line.begin(), formatted_line.end(), '\r'), formatted_line.end());

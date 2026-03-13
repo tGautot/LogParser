@@ -55,6 +55,7 @@ int main(int argc, char** argv){
   // Profile based on filename, not full path. Is a choice, might change
   cfg.load(filename);
   std::string format_spec = cfg.get(CFG_LINE_FORMAT);
+  LOG(1, "using format %s\n", format_spec.data());
   std::unique_ptr<LineFormat> line_format = LineFormat::fromFormatString(format_spec);
 
   LogParserTerminal lpt(filepath, std::move(line_format));

@@ -26,14 +26,15 @@ int parse_chr(const char** s, _ChrFieldOption* p, void* res){
     *((char*)res) = p->target;
     (*s)++;
   }
-  else *((char*)res) = 0;
+  else {
+    *((char*)res) = 0;
+    return -1;
+  }
   while(**s == p->target && p->repeat){
     (*s)++;
   }
   return 0;
 }
-
-#include <iostream>
 
 int parse_str(const char** s, _StrFieldOption* p, void* res){
   //std::cout << "Parsing STR, stop type " << p->stop_type << ", delim " << p->delim << std::endl;
