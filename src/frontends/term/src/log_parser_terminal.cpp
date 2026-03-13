@@ -282,7 +282,7 @@ void LogParserTerminal::loop(){
 
     // Position cursor
     if(term_state.input_mode == RAW){
-      snprintf(buf, 32, ESC_CMD "%d;%ldH", term_state.nrows, term_state.raw_input.length()+1);
+      snprintf(buf, 32, ESC_CMD "%d;%zuH", term_state.nrows, term_state.raw_input_cursor + 1);
     } else {
       snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.cy+1, term_state.cx+1);
     }
@@ -309,7 +309,12 @@ user_action_t LogParserTerminal::getUserAction(){
     if(term_state.input_mode == RAW){
       char c = readByte();
       LOG(5, "In raw mode and read char %d\n", c);
-      //LOG(5, "Before applying char str is %s\n", term_state.raw_input.data());
+
+      auto insert_at_cursor = [&](const std::string& s) {
+        term_state.raw_input.insert(term_state.raw_input_cursor, s);
+        term_state.raw_input_cursor += s.size();
+      };
+
       if(c == 13) { // <Enter>
         LOG_FCT(3, "Sending command '%s' to modules.\n", term_state.raw_input.data());
         for(auto cmd_cb : command_cbs){
@@ -317,13 +322,53 @@ user_action_t LogParserTerminal::getUserAction(){
         }
         term_state.input_mode = ACTION;
         term_state.raw_input = "";
+        term_state.raw_input_cursor = 0;
         break;
       }
       if(c == 127) { // <Backspace>
-        term_state.raw_input.erase(term_state.raw_input.size()-1);
+        if(term_state.raw_input_cursor > 1) {
+          term_state.raw_input.erase(term_state.raw_input_cursor - 1, 1);
+          term_state.raw_input_cursor--;
+        }
         break;
       }
-      term_state.raw_input += c;
+      if(c == ESC_CHR) {
+        char c2 = readByte();
+        if(c2 == '[') {
+          // Collect parameter bytes (0x30-0x3F), then read the final byte
+          std::string params;
+          char final_byte = readByte();
+          while((unsigned char)final_byte >= 0x30 && (unsigned char)final_byte <= 0x3F) {
+            params += final_byte;
+            final_byte = readByte();
+          }
+          if(final_byte == 'C' && params.empty()) { // right arrow
+            if(term_state.raw_input_cursor < term_state.raw_input.size())
+              term_state.raw_input_cursor++;
+          } else if(final_byte == 'D' && params.empty()) { // left arrow
+            if(term_state.raw_input_cursor > 1)
+              term_state.raw_input_cursor--;
+          } else if(final_byte == '~' && params == "3") { // delete key
+            if(term_state.raw_input_cursor < term_state.raw_input.size())
+              term_state.raw_input.erase(term_state.raw_input_cursor, 1);
+          } else { // unknown CSI: display verbatim
+            std::string r = "\\e[" + params;
+            if((unsigned char)final_byte < 32) { r += '^'; r += (char)('@' + final_byte); }
+            else r += final_byte;
+            insert_at_cursor(r);
+          }
+        } else { // ESC + non-CSI: display \e then c2
+          insert_at_cursor("\\e");
+          if((unsigned char)c2 < 32) insert_at_cursor({'^', (char)('@' + c2)});
+          else insert_at_cursor(std::string(1, c2));
+        }
+        break;
+      }
+      if((unsigned char)c < 32) {
+        insert_at_cursor({'^', (char)('@' + c)});
+      } else {
+        insert_at_cursor(std::string(1, c));
+      }
       break;
     }
     
@@ -331,6 +376,7 @@ user_action_t LogParserTerminal::getUserAction(){
     if(seq == ":"){
       term_state.input_mode = RAW;
       term_state.raw_input = ":";
+      term_state.raw_input_cursor = 1;
       break;
     }
     if(seq == "q") exit(0);

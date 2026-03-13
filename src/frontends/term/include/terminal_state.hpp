@@ -19,6 +19,7 @@ typedef struct term_state_t {
   uint64_t current_action_multiplier = 1;
   InputMode input_mode;
   std::string raw_input;
+  size_t raw_input_cursor = 0;
   std::vector<const ProcessedLine*> displayed_pls;
   std::string highlight_word;
 } term_state_t;
