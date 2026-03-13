@@ -278,6 +278,11 @@ int main(int argc, char** argv){
   vmm.registerUserInputMapping(lpt);
   vmm.registerUserActionCallback(lpt);
   vmm.registerCommandCallback(lpt);
+
+  ConfigManagerModule cfgmm;
+  cfgmm.registerUserInputMapping(lpt);
+  cfgmm.registerUserActionCallback(lpt);
+  cfgmm.registerCommandCallback(lpt);
   lpt.loop();
   logger_teardown();
 }

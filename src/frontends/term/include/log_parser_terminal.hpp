@@ -17,10 +17,17 @@ typedef uint64_t user_action_t;
 using ActionCallbackPtr =  int(*)(user_action_t, term_state_t&, LogParserInterface*);
 using CommandCallbackPtr =  int(*)(std::string&, term_state_t&, LogParserInterface*);
 
+typedef struct config {
+  std::string txt_col="default", bg_col="default", sl_txt_col="default", sl_bg_col="default";
+} term_config_t;
+
+std::string ansi(const std::string& color, bool bold = false);
+
 class LogParserTerminal {
   
 public:
   term_state_t term_state;
+  term_config_t config;
 
   std::string frame_str;
   LogParserInterface* lpi;

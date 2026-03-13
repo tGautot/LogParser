@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <string>
 
 extern "C"{
@@ -22,23 +23,39 @@ extern "C"{
 #define CLEAR_SCREEN() write(STDOUT_FILENO, ESC_CMD "2J", 4);
 #define CURSOR_TL() write(STDOUT_FILENO, ESC_CMD "H", 3);
 
-#define FG_BLACK "30"
-#define FG_RED "31"
-#define FG_GREEN "32"
-#define FG_YELLOW "33"
-#define FG_BLUE "34"
-#define FG_PURPLE "35"
-#define FG_CYAN "36"
-#define FG_LIGHT_GREY "37"
+#define ANSI_RESET "\033[0m"
 
-#define BG_BLACK "40"
-#define BG_RED "41"
-#define BG_GREEN "42"
-#define BG_YELLOW "43"
-#define BG_BLUE "44"
-#define BG_PURPLE "45"
-#define BG_CYAN "46"
-#define BG_LIGHT_GREY "47"
+std::string ansi(const std::string& color, bool bold) {
+  static const std::map<std::string, int> color_codes = {
+    // To reset only either foreground or background color, instead of both
+    {"fg_reset",         39}, {"bg_reset",          49},
+    // Actual Colors
+    {"fg_black",         30}, {"fg_red",            31},
+    {"fg_green",         32}, {"fg_yellow",         33},
+    {"fg_blue",          34}, {"fg_purple",         35},
+    {"fg_cyan",          36}, {"fg_white",          37},
+    {"fg_default",       39},
+    {"fg_bright_black",  90}, {"fg_bright_red",     91},
+    {"fg_bright_green",  92}, {"fg_bright_yellow",  93},
+    {"fg_bright_blue",   94}, {"fg_bright_purple",  95},
+    {"fg_bright_cyan",   96}, {"fg_bright_white",   97},
+    {"bg_black",         40}, {"bg_red",            41},
+    {"bg_green",         42}, {"bg_yellow",         43},
+    {"bg_blue",          44}, {"bg_purple",         45},
+    {"bg_cyan",          46}, {"bg_white",          47},
+    {"bg_default",       49},
+    {"bg_bright_black", 100}, {"bg_bright_red",    101},
+    {"bg_bright_green", 102}, {"bg_bright_yellow", 103},
+    {"bg_bright_blue",  104}, {"bg_bright_purple", 105},
+    {"bg_bright_cyan",  106}, {"bg_bright_white",  107},
+  };
+  auto it = color_codes.find(color);
+  if (it == color_codes.end()) return "";
+  std::string seq = "\033[";
+  if (bold) seq += "1;";
+  seq += std::to_string(it->second) + "m";
+  return seq;
+}
 
 
 
@@ -170,17 +187,19 @@ void LogParserTerminal::drawRows(){
   
   // Render file lines
   std::string_view fetched_line;
+  frame_str += ansi("bg_" + config.bg_col, false);
+  frame_str += ansi("fg_" + config.txt_col, false);
   for(int i = 0; i < term_state.nrows-term_state.num_status_line; i++){
     const ProcessedLine* pl = term_state.displayed_pls[i];
     if(pl != nullptr){
       fetched_line = pl->raw_line;
-      LOG_FCT(5, "Adding to display line: '%s'\n", fetched_line.data());
+      LOG_FCT(9, "Adding to display line: '%s'\n", std::string(fetched_line).data());
       std::string line_num_str = std::to_string(pl->line_num);
       // Spaces before linenum, if needed
       if(line_num_str.size()+2 < term_state.info_col_size) {
         frame_str += std::string(term_state.info_col_size - line_num_str.size() - 2, ' ');
       }
-      frame_str += "\033[" FG_LIGHT_GREY "m" + line_num_str + "~ " "\033[0m";
+      frame_str += ansi("fg_white") + line_num_str + "~ " + ansi("fg_reset");
 
       std::string formatted_line = std::string(fetched_line);
       formatted_line.erase(std::remove(formatted_line.begin(), formatted_line.end(), '\r'), formatted_line.end());
@@ -221,6 +240,9 @@ void LogParserTerminal::drawRows(){
   }
   
   char buf[81];
+
+  frame_str += ansi("bg_"+ config.sl_bg_col, false);
+  frame_str += ansi("fg_"+ config.sl_txt_col, false);
   if(term_state.input_mode == ACTION){
     // Status Line
     snprintf(buf, 80, "Status: l%d:c%d (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.nrows, term_state.ncols, term_state.frame_num);
@@ -242,6 +264,7 @@ void LogParserTerminal::drawRows(){
       frame_str += std::string(term_state.ncols-strlen(buf), ' ');
     }
   } 
+  frame_str += ANSI_RESET;
 }
 
 
