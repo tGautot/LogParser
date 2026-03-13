@@ -26,13 +26,11 @@ void VimMotionsModule::registerUserActionCallback(LogParserTerminal& lpt) {
     }
     if(act == ACTION_GO_TO_FILE_END){
       lpi->jumpToLocalLine(LINE_T_MAX);
+      // We ideally want to put the cursor as low as possible (cy = num_rows - status_lines)
       line_t line_num = lpi->block.first_line_local_id + lpi->block.lines.size()-1;
-      if(line_num >= (size_t) state.cy){
-        state.line_offset = line_num - state.cy;
-      } else {
-        state.line_offset = 0;
-        state.cy = line_num;
-      }
+      if(line_num > (size_t) state.nrows - state.num_status_line - 1) state.cy = state.nrows - state.num_status_line -1;
+      else state.cy = line_num;
+      state.line_offset = line_num - state.cy;
     }
     return 0;
   });
