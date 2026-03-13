@@ -18,7 +18,7 @@
 
 LogParserInterface::LogParserInterface(std::string fname, std::unique_ptr<LineFormat> fmt, std::shared_ptr<LineFilter> fltr,  int bsize) 
   : block_size(bsize), block(bsize){
-  LOG_LOGENTRY(5, "LogParserInterface::LogParserInterface");
+  LOG_FUNCENTRY(5, "LogParserInterface::LogParserInterface");
   ffr = new FilteredFileReader(fname, std::move(fmt), fltr);
   known_last_line = LINE_T_MAX;
   known_first_line = 0;
@@ -52,7 +52,7 @@ LogParserInterface::~LogParserInterface(){
 }
 
 void LogParserInterface::reset_and_refill_block(line_t around_global_line){
-  LOG_ENTRY("LogParserInterface::reset_and_refill_block");
+  LOG_FUNCENTRY(5, "LogParserInterface::reset_and_refill_block");
   
   block.lines.clear();
   known_last_line = LINE_T_MAX;
@@ -69,7 +69,7 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
       block.first_line_local_id++;
     }
     block.lines.push_back(std::move(pl));
-    LOG_FCT(5, "Read %d bytes, line is %.*s\n", nread, STRING_VIEW_PRINT(block.lines.back().raw_line));
+    LOG_FCT(9, "Read %d bytes, line is %.*s\n", nread, STRING_VIEW_PRINT(block.lines.back().raw_line));
     if(line_local_id == 0) known_first_line = block.lines[0].line_num;
     if(line_local_id % 100 == 0 && line_local_id/100 >= local_to_global_id.size()){
       local_to_global_id.push_back(pl.line_num);
@@ -117,7 +117,7 @@ void LogParserInterface::print_lines_in_block(){
 
 
 line_info_t LogParserInterface::getLine(line_t local_line_id){
-  LOG_LOGENTRY(9, "LogParserInterface::getLine");
+  LOG_FUNCENTRY(9, "LogParserInterface::getLine");
   LOG_FCT(9, "Looking for line %llu, block rqnge is [%llu, %llu[\n", local_line_id, block.first_line_local_id, block.first_line_local_id + block.size());
   if(local_line_id >= block.first_line_local_id && (local_line_id < block.first_line_local_id + block.size() || block.contains_last_line) ){
     if( (block.contains_last_line) && local_line_id >= block.first_line_local_id + block.size() ){
@@ -228,7 +228,7 @@ line_t LogParserInterface::getLineGlobalIdUpperbound(line_t local_line_id){
 }
 
 void LogParserInterface::jumpToLocalLine(line_t local_line_id){
-  LOG_LOGENTRY(5, "LogParserInterface::jumpToLocalLine");
+  LOG_FUNCENTRY(5, "LogParserInterface::jumpToLocalLine");
   LOG_FCT(5,"Jumping to local line %ld\n", local_line_id);
   line_t block_last_line = block.first_line_local_id + block_size;
   if(local_line_id >= block.first_line_local_id && (local_line_id <= block_last_line || block.contains_last_line)){

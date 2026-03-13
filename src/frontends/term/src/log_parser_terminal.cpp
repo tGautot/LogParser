@@ -159,7 +159,7 @@ bool LogParserTerminal::isCursorOnLastLine(){
 }
 
 void LogParserTerminal::drawRows(){
-  LOG_ENTRY("LogParserTerminal::drawRows");
+  LOG_FUNCENTRY(5, "LogParserTerminal::drawRows");
   frame_str += ESC_CMD "J";
   term_state.displayed_pls.clear();
   for(int i = 0; i < term_state.nrows-1; i++){
@@ -278,7 +278,7 @@ inline char readByte(){
 }
 
 user_action_t LogParserTerminal::getUserAction(){
-  LOG_LOGENTRY(3, "LogParserTerminal::getUserAction");
+  LOG_FUNCENTRY(3, "LogParserTerminal::getUserAction");
   std::string seq = "";
   bool need_next_byte = true;
   

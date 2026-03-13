@@ -111,7 +111,7 @@ void FilteredFileReader::jumpToLine(line_t line_num){
 }
 
 size_t FilteredFileReader::getNextRawLine(const char** s){
-  LOG_LOGENTRY(9, "FilteredFileReader::getNextRawLine");
+  LOG_FUNCENTRY(9, "FilteredFileReader::getNextRawLine");
   LOG_FCT(9, "m_curr_line=%lu,already indexed %lu lines\n", m_curr_line, m_file_data.line_index.size()); 
   size_t sz = 0;
   *s = m_file_data.data + m_cursor;
@@ -137,7 +137,7 @@ size_t FilteredFileReader::getNextRawLine(const char** s){
 }
 
 size_t FilteredFileReader::getPrevRawLine(const char** s){
-  LOG_LOGENTRY(9, "FilteredFileReader::getPrevRawLine");
+  LOG_FUNCENTRY(9, "FilteredFileReader::getPrevRawLine");
   LOG_FCT(9, "m_curr_line=%lu,already indexed %lu lines\n", m_curr_line, m_file_data.line_index.size()); 
 
   if(m_curr_line > m_file_data.line_index.size()){
@@ -174,7 +174,7 @@ void FilteredFileReader::seekRawLine(line_t num){
 }
 
 bool FilteredFileReader::getNextValidLine(ProcessedLine& pl){
-  LOG_LOGENTRY(9, "FilteredFileReader::getNextValidLine");
+  LOG_FUNCENTRY(9, "FilteredFileReader::getNextValidLine");
   size_t numof_tested_lines = m_filtered_file_data->line_passes.size();
   LOG_FCT(9, "Searching for next valid line from %lu (already indexed %llu , and tested %llu)\n",  m_curr_line, m_file_data.line_index.size(), numof_tested_lines);
 
