@@ -1,7 +1,9 @@
 
+#include "line_format.hpp"
 #include "terminal_modules.hpp"
 #include "ConfigHandler.hpp"
 #include <filesystem>
+#include <memory>
 
 #include "logging.hpp"
 
@@ -21,11 +23,19 @@ void ConfigManagerModule::registerCommandCallback(LogParserTerminal& lpt) {
       std::string key = kv_str.substr(0, eq);
       std::string val = kv_str.substr(eq + 1);
 
+      // Special case here, might want a better way to handle "big" config changes that pushing it from here
+      // PS: we do it before setting config, that way if format is badly formated we don't save it
+      if(key == CFG_LINE_FORMAT){
+        std::unique_ptr<LineFormat> format = LineFormat::fromFormatString(val);
+        lpi->setLineFormat(std::move(format), lpi->local_to_global_id[state.line_offset+state.cy]);
+      }
+
       ConfigHandler cfg;
       LOG(1, "stored in lpi %s, absolute is %s\n", lpi->filename.data(), std::filesystem::canonical(lpi->filename).string().data());
       std::string profile = cfg.getProfileForFile(std::filesystem::canonical(lpi->filename).string());
       cfg.set(profile, key, val);
       cfg.save(profile);
+
       return 1;
     }
 
