@@ -56,6 +56,7 @@ private:
 public:
   uint32_t block_size;
   LineBlock block;
+  std::string filename;
   line_t known_last_line=LINE_T_MAX;
   LogParserInterface(std::string fname, std::unique_ptr<LineFormat> fmt, std::shared_ptr<LineFilter> fltr, int bsize = 1000);
   ~LogParserInterface();

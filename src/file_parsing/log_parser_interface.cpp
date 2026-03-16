@@ -16,8 +16,8 @@
 
 #define STRING_VIEW_PRINT(sv) static_cast<int>(sv.length()), sv.data()
 
-LogParserInterface::LogParserInterface(std::string fname, std::unique_ptr<LineFormat> fmt, std::shared_ptr<LineFilter> fltr,  int bsize) 
-  : block_size(bsize), block(bsize){
+LogParserInterface::LogParserInterface(std::string fname, std::unique_ptr<LineFormat> fmt, std::shared_ptr<LineFilter> fltr,  int bsize)
+  : block_size(bsize), block(bsize), filename(fname){
   LOG_FUNCENTRY(5, "LogParserInterface::LogParserInterface");
   ffr = new FilteredFileReader(fname, std::move(fmt), fltr);
   known_last_line = LINE_T_MAX;

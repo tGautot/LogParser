@@ -4,26 +4,34 @@
 #include <map>
 #include <string>
 
-#define CFG_BG_COLOR "bg_col"
-#define CFG_TEXT_COLOR "txt_col"
+#define CFG_BG_COLOR    "bg_col"
+#define CFG_TEXT_COLOR  "txt_col"
 #define CFG_LINE_FORMAT "line_format"
 
-// Only one config allowed at runtime, make kv static so that all instances share it
-static std::map<std::string, std::string> kv;
+#define CFG_COMMON_PROFILE  "common"
+#define CFG_PROFILE_MAPPING "profile_mapping"
 
 class ConfigHandler {
-public: 
+public:
+  // Lightweight: ensures ~/.lr has been loaded into static storage (no-op after first call)
   ConfigHandler();
-  
-  void load(const std::string& profile); 
+
+  // Per-profile kv access: looks in profile first, falls back to common, then default_val
+  std::string get(const std::string& profile, const std::string& key,
+                  const std::string& default_val = "") const;
+  void set(const std::string& profile, const std::string& key, const std::string& val);
+
+  // Rewrites only the given profile's section in ~/.lr
   void save(const std::string& profile);
 
-  std::string get(const std::string& key);
-  void set(const std::string& key, const std::string& val);
+  // profile_mapping section helpers (<file_path>=<profile_name>)
+  std::string getProfileForFile(const std::string& file_path) const;
+  void setProfileForFile(const std::string& file_path, const std::string& profile_name);
+
+private:
+  static std::map<std::string, std::map<std::string, std::string>> s_sections;
+  static bool s_loaded;
+  static void loadFromDisk();
 };
 
-
-
 #endif
-
-

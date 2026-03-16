@@ -1,109 +1,160 @@
 #include "ConfigHandler.hpp"
-#include <algorithm>
-#include <cctype>
-#include <cstdio>
-#include <fstream>
-#include <iosfwd>
-#include <stdexcept>
-
-#define DEFAULT_PROFILE "common"
-
-#define DEFAULT_CFG_FILE  "[[" DEFAULT_PROFILE "]]\n" \
-                          "BG_COL=default\n" \
-                          "TXT_COL=default\n" \
-                          "LINE_FORMAT={STR:line}\n"
-
-#define CFG_FILE std::string(getenv("HOME")) + "/.lr"
-
 #include "logging.hpp"
 
-ConfigHandler::ConfigHandler(){
-  if(kv.size() == 0){
-    kv[CFG_BG_COLOR] = "default";
-    kv[CFG_TEXT_COLOR] = "default";
-    kv[CFG_LINE_FORMAT] = "";
+#include <fstream>
+#include <sstream>
+#include <vector>
+
+// Static storage — shared across all ConfigHandler instances
+std::map<std::string, std::map<std::string, std::string>> ConfigHandler::s_sections;
+bool ConfigHandler::s_loaded = false;
+
+static std::string cfgFilePath() {
+  const char* home = getenv("HOME");
+  return home ? std::string(home) + "/.lr" : ".lr";
+}
+
+static const std::string DEFAULT_CFG =
+  "[[" CFG_COMMON_PROFILE "]]\n"
+  CFG_BG_COLOR    "=default\n"
+  CFG_TEXT_COLOR  "=default\n"
+  CFG_LINE_FORMAT "={STR:line}\n";
+
+static void parse_stream(std::istream& stream,
+                         std::map<std::string, std::map<std::string, std::string>>& sections) {
+  std::string line;
+  std::string current_section;
+  while (std::getline(stream, line)) {
+    if (line.size() >= 4 && line[0] == '[' && line[1] == '[') {
+      size_t close = line.find("]]", 2);
+      if (close != std::string::npos) {
+        current_section = line.substr(2, close - 2);
+        sections.emplace(current_section, std::map<std::string, std::string>{});
+        continue;
+      }
+    }
+    if (current_section.empty()) continue;
+    size_t eq = line.find('=');
+    if (eq == std::string::npos) continue;
+    sections[current_section][line.substr(0, eq)] = line.substr(eq + 1);
   }
 }
 
-bool is_profile_banner(const std::string& line, const std::string& profile){
-  LOG(3, "Is %s banner of %s?  pos=%d\n", line.data(), profile.data(), line.find("[[" + profile + "]]"));
-  return line.find("[[" + profile + "]]") == 0;
+void ConfigHandler::loadFromDisk() {
+  std::string path = cfgFilePath();
+  std::ifstream in(path);
+  if (!in.is_open()) {
+    LOG(3, "Config file not found, creating it at %s\n", path.data());
+    std::ofstream out(path);
+    if (out.is_open()) {
+      out << DEFAULT_CFG;
+      out.close();
+    }
+    std::istringstream defaults(DEFAULT_CFG);
+    parse_stream(defaults, s_sections);
+  } else {
+    parse_stream(in, s_sections);
+  }
+  s_loaded = true;
 }
 
-void parse_profile(std::ifstream& stream, const std::string& profile){
-  LOG_FUNCENTRY(3, "parse_profile");
-  LOG_FCT(3, "profile=%s\n", profile.data());
-  std::string line;
-  while(getline(stream, line)){
-    LOG(3, "iter on line=%s\n", line.data());
-    if(is_profile_banner(line, profile)){
-      // Found the profile we want, look at the kv pairs
-      while(getline(stream, line)){
-        if(line.find("[[") == 0) break; // Start of next profile, stop
-        size_t half = line.find("=");
-        if(half == std::string::npos) continue;
-        std::string k = line.substr(0, half);
-        std::transform(k.begin(), k.end(), k.begin(), ::tolower);
-        std::string v = line.substr(half+1);
-        LOG(3, "Value of %s is now %s\n", k.data(), v.data());
-        kv[k] = v;
+ConfigHandler::ConfigHandler() {
+  if (!s_loaded)
+    loadFromDisk();
+}
+
+std::string ConfigHandler::get(const std::string& profile, const std::string& key,
+                               const std::string& default_val) const {
+  if (!profile.empty()) {
+    auto pit = s_sections.find(profile);
+    if (pit != s_sections.end()) {
+      auto kit = pit->second.find(key);
+      if (kit != pit->second.end()) return kit->second;
+    }
+  }
+  // Fall back to common
+  if (profile != CFG_COMMON_PROFILE) {
+    auto cit = s_sections.find(CFG_COMMON_PROFILE);
+    if (cit != s_sections.end()) {
+      auto kit = cit->second.find(key);
+      if (kit != cit->second.end()) return kit->second;
+    }
+  }
+  return default_val;
+}
+
+void ConfigHandler::set(const std::string& profile, const std::string& key, const std::string& val) {
+  s_sections[profile][key] = val;
+}
+
+void ConfigHandler::save(const std::string& profile) {
+  LOG_FUNCENTRY(3, "ConfigHandler::save");
+  std::string path = cfgFilePath();
+
+  std::vector<std::string> lines;
+  {
+    std::ifstream in(path);
+    if (in.is_open()) {
+      std::string line;
+      while (std::getline(in, line))
+        lines.push_back(line);
+    }
+  }
+
+  std::string banner = "[[" + profile + "]]";
+  std::vector<std::string> new_section;
+  new_section.push_back(banner);
+  auto sit = s_sections.find(profile);
+  if (sit != s_sections.end()) {
+    for (const auto& [k, v] : sit->second)
+      new_section.push_back(k + "=" + v);
+  }
+
+  int section_start = -1;
+  int section_end   = (int)lines.size();
+  for (int i = 0; i < (int)lines.size(); i++) {
+    if (lines[i].find(banner) == 0) {
+      section_start = i;
+      for (int j = i + 1; j < (int)lines.size(); j++) {
+        if (lines[j].size() >= 2 && lines[j][0] == '[' && lines[j][1] == '[') {
+          section_end = j;
+          break;
+        }
       }
       break;
-
     }
   }
-}
 
-void ConfigHandler::load(const std::string& profile){
-  LOG_FUNCENTRY(3, "ConfigHandler::load");
-  std::ifstream cfs(CFG_FILE);
-  if(!cfs.is_open()){
-    LOG_FCT(3, "Config file doesn't exit creating it...\n");
-    std::ofstream cfg_writer(CFG_FILE);
-    if(!cfg_writer.is_open()){
-      LOG_FCT(3, "Couldn't create config file, proceeding with default...\n");
-      LOG_EXIT();
-      return;
-    }
-    cfg_writer << DEFAULT_CFG_FILE;
-    cfg_writer.close();
-    LOG_FCT(3, "Config created, re-opening it...\n");
-    cfs.open(CFG_FILE);
+  if (section_start == -1) {
+    if (!lines.empty() && !lines.back().empty())
+      lines.push_back("");
+    lines.insert(lines.end(), new_section.begin(), new_section.end());
+  } else {
+    lines.erase(lines.begin() + section_start, lines.begin() + section_end);
+    lines.insert(lines.begin() + section_start, new_section.begin(), new_section.end());
   }
-  LOG_FCT(3, "Config file opened\n");
 
-  std::streampos stt = cfs.tellg();
-
-  std::string line;
-  while(getline(cfs, line)){
-    LOG_FCT(3, "cfg: %s\n", line.data());
+  std::ofstream out(path);
+  if (!out.is_open()) {
+    LOG(3, "Couldn't open config file for writing\n");
+    LOG_EXIT();
+    return;
   }
-  cfs.clear();
-  cfs.seekg(stt); 
-
-  // Need to first load the common profile, then override with specified profile
-  parse_profile(cfs, DEFAULT_PROFILE);
-  
-  cfs.clear();
-  cfs.seekg(stt);
-
-  parse_profile(cfs, profile);
+  for (const auto& l : lines)
+    out << l << "\n";
 
   LOG_EXIT();
-
 }
 
-void ConfigHandler::save(const std::string& profile){
-  // TODO
+std::string ConfigHandler::getProfileForFile(const std::string& file_path) const {
+  auto sit = s_sections.find(CFG_PROFILE_MAPPING);
+  if (sit == s_sections.end()) return "";
+  auto it = sit->second.find(file_path);
+  if (it == sit->second.end()) return "";
+  return it->second;
 }
 
-std::string ConfigHandler::get(const std::string& key){
-  if(kv.find(key) == kv.end()){
-    throw std::runtime_error("Unknown config key " + key);
-  }
-  return kv[key];
-}
-
-void ConfigHandler::set(const std::string& key, const std::string& val){
-  kv[key] = val;
+void ConfigHandler::setProfileForFile(const std::string& file_path, const std::string& profile_name) {
+  s_sections[CFG_PROFILE_MAPPING][file_path] = profile_name;
+  save(CFG_PROFILE_MAPPING);
 }
