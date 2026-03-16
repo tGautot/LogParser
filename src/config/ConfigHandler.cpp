@@ -8,6 +8,7 @@
 // Static storage — shared across all ConfigHandler instances
 std::map<std::string, std::map<std::string, std::string>> ConfigHandler::s_sections;
 bool ConfigHandler::s_loaded = false;
+bool ConfigHandler::s_dirty  = false;
 
 static std::string cfgFilePath() {
   const char* home = getenv("HOME");
@@ -16,9 +17,13 @@ static std::string cfgFilePath() {
 
 static const std::string DEFAULT_CFG =
   "[[" CFG_COMMON_PROFILE "]]\n"
-  CFG_BG_COLOR    "=default\n"
-  CFG_TEXT_COLOR  "=default\n"
-  CFG_LINE_FORMAT "={STR:line}\n";
+  CFG_BG_COLOR      "=default\n"
+  CFG_TEXT_COLOR    "=default\n"
+  CFG_SL_BG_COLOR   "=default\n"
+  CFG_SL_TXT_COLOR  "=default\n"
+  CFG_LINE_FORMAT   "={STR:line}\n"
+  CFG_HIDE_BAD_FMT  "=false\n"
+  CFG_LINE_NUM_MODE "=global\n";
 
 static void parse_stream(std::istream& stream,
                          std::map<std::string, std::map<std::string, std::string>>& sections) {
@@ -85,6 +90,35 @@ std::string ConfigHandler::get(const std::string& profile, const std::string& ke
 
 void ConfigHandler::set(const std::string& profile, const std::string& key, const std::string& val) {
   s_sections[profile][key] = val;
+  s_dirty = true;
+}
+
+ConfigHandler::~ConfigHandler() {
+  if (s_dirty)
+    saveAll();
+}
+
+void ConfigHandler::saveAll() {
+  std::string path = cfgFilePath();
+  std::ofstream out(path);
+  if (!out.is_open()) {
+    LOG(3, "Couldn't open config file for writing in saveAll\n");
+    return;
+  }
+  auto write_section = [&out](const std::string&  section, const std::map<std::string, std::string>& kv){
+    out << "[[" << section << "]]\n";
+    for (const auto& [k, v] : kv)
+      out << k << "=" << v << "\n";
+  };
+  write_section(CFG_COMMON_PROFILE, s_sections[CFG_COMMON_PROFILE]);
+  for (const auto& [section, kv] : s_sections) {
+    out << "\n";
+    if(section != CFG_COMMON_PROFILE && section != CFG_PROFILE_MAPPING) write_section(section, kv);
+  }
+  out << "\n";
+  write_section(CFG_PROFILE_MAPPING, s_sections[CFG_PROFILE_MAPPING]);
+  out.close();
+  s_dirty = false;
 }
 
 void ConfigHandler::save(const std::string& profile) {
@@ -156,5 +190,6 @@ std::string ConfigHandler::getProfileForFile(const std::string& file_path) const
 
 void ConfigHandler::setProfileForFile(const std::string& file_path, const std::string& profile_name) {
   s_sections[CFG_PROFILE_MAPPING][file_path] = profile_name;
+  s_dirty = true;
   save(CFG_PROFILE_MAPPING);
 }

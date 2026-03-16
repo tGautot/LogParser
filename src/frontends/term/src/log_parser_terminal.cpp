@@ -1,6 +1,9 @@
 #include "log_parser_terminal.hpp"
+#include "ConfigHandler.hpp"
 #include "line_format.hpp"
 #include "processed_line.hpp"
+
+#include <filesystem>
 
 #include <cstddef>
 #include <cstdint>
@@ -138,6 +141,7 @@ LogParserTerminal::LogParserTerminal(const std::string& filename) : LogParserTer
 
 LogParserTerminal::LogParserTerminal(const std::string& filename, std::unique_ptr<LineFormat> line_format){
   lpi = new LogParserInterface(filename, std::move(line_format), nullptr);
+  m_profile = ConfigHandler().getProfileForFile(std::filesystem::canonical(filename).string());
   setupTerm(term_state);
   atexit(rollbackTerm);
   term_state.cx = 4;
@@ -174,14 +178,21 @@ void LogParserTerminal::drawRows(){
   
   // Render file lines
   std::string_view fetched_line;
-  frame_str += ansi("bg_" + config.bg_col, false);
-  frame_str += ansi("fg_" + config.txt_col, false);
+  ConfigHandler cfg;
+  bool hide_bad_fmt = cfg.get(m_profile, CFG_HIDE_BAD_FMT)  == "true";
+  bool local_nums   = cfg.get(m_profile, CFG_LINE_NUM_MODE) == "local";
+  if(local_nums)
+    term_state.info_col_size = 2 + std::to_string(term_state.nrows - term_state.num_status_line).size();
+  frame_str += ansi("bg_" + cfg.get(m_profile, CFG_BG_COLOR), false);
+  frame_str += ansi("fg_" + cfg.get(m_profile, CFG_TEXT_COLOR), false);
+  int local_line_num = 0;
   for(int i = 0; i < term_state.nrows-term_state.num_status_line; i++){
     const ProcessedLine* pl = term_state.displayed_pls[i];
-    if(pl != nullptr){
+    if(pl != nullptr && !(hide_bad_fmt && !pl->well_formated)){
+      local_line_num++;
       fetched_line = pl->raw_line;
       LOG_FCT(9, "Adding to display line(%d): '%s'\n", pl->well_formated, std::string(fetched_line).data());
-      std::string line_num_str = std::to_string(pl->line_num);
+      std::string line_num_str = local_nums ? std::to_string(local_line_num) : std::to_string(pl->line_num);
       // Spaces before linenum, if needed
       if(!pl->well_formated){
         frame_str += ansi("bg_red");
@@ -191,10 +202,10 @@ void LogParserTerminal::drawRows(){
         frame_str += std::string(term_state.info_col_size - line_num_str.size() - 2, ' ');
       }
 
-      frame_str += ansi("fg_white") + line_num_str + "~ " + ansi("fg_" + config.txt_col);
+      frame_str += ansi("fg_white") + line_num_str + "~ " + ansi("fg_" + cfg.get(m_profile, CFG_TEXT_COLOR));
 
       if(!pl->well_formated){
-        frame_str += ansi("bg_" + config.bg_col);
+        frame_str += ansi("bg_" + cfg.get(m_profile, CFG_BG_COLOR));
       }
 
       std::string formatted_line = std::string(fetched_line);
@@ -237,8 +248,8 @@ void LogParserTerminal::drawRows(){
   
   char buf[81];
 
-  frame_str += ansi("bg_"+ config.sl_bg_col, false);
-  frame_str += ansi("fg_"+ config.sl_txt_col, false);
+  frame_str += ansi("bg_" + cfg.get(m_profile, CFG_SL_BG_COLOR), false);
+  frame_str += ansi("fg_" + cfg.get(m_profile, CFG_SL_TXT_COLOR), false);
   if(term_state.input_mode == ACTION){
     // Status Line
     snprintf(buf, 80, "Status: l%d:c%d (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.nrows, term_state.ncols, term_state.frame_num);

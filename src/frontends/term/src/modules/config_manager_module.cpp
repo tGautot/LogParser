@@ -3,6 +3,8 @@
 #include "ConfigHandler.hpp"
 #include <filesystem>
 
+#include "logging.hpp"
+
 void ConfigManagerModule::registerUserInputMapping(LogParserTerminal&){}
 void ConfigManagerModule::registerUserActionCallback(LogParserTerminal&) {}
 void ConfigManagerModule::registerCommandCallback(LogParserTerminal& lpt) {
@@ -20,7 +22,8 @@ void ConfigManagerModule::registerCommandCallback(LogParserTerminal& lpt) {
       std::string val = kv_str.substr(eq + 1);
 
       ConfigHandler cfg;
-      std::string profile = cfg.getProfileForFile(std::filesystem::absolute(lpi->filename).string());
+      LOG(1, "stored in lpi %s, absolute is %s\n", lpi->filename.data(), std::filesystem::canonical(lpi->filename).string().data());
+      std::string profile = cfg.getProfileForFile(std::filesystem::canonical(lpi->filename).string());
       cfg.set(profile, key, val);
       cfg.save(profile);
       return 1;

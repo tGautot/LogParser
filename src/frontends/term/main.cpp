@@ -45,18 +45,20 @@ int main(int argc, char** argv){
     return 1;
   }
   std::string filepath = argv[1];
-  std::string filename = std::filesystem::absolute(filepath).string();
+  std::string filename = std::filesystem::canonical(filepath).string();
 
 
   ConfigHandler cfg;
   std::string profile = cfg.getProfileForFile(filename);
+  if(profile == "") {
+    profile = filename;
+    cfg.setProfileForFile(filename, profile);
+  }
   std::string format_spec = cfg.get(profile, CFG_LINE_FORMAT);
   LOG(1, "using format %s\n", format_spec.data());
   std::unique_ptr<LineFormat> line_format = LineFormat::fromFormatString(format_spec);
 
   LogParserTerminal lpt(filepath, std::move(line_format));
-  lpt.config.bg_col  = cfg.get(profile, CFG_BG_COLOR);
-  lpt.config.txt_col = cfg.get(profile, CFG_TEXT_COLOR);
   // TODO load modules on the fly based on config
   // dlopen is fun, but should probably make python/lua bindings at some points
   CursorMoveModule cmm;
