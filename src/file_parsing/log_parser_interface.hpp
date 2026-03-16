@@ -50,14 +50,14 @@ private:
 
   void reset_and_refill_block(line_t around_global_line);
 
-  // Records mapping local->global for one in every 100 local line
-  std::vector<line_t> local_to_global_id;
-
-public:
+  
+  public:
   uint32_t block_size;
   LineBlock block;
   std::string filename;
   line_t known_last_line=LINE_T_MAX;
+  std::vector<line_t> local_to_global_id;
+
   LogParserInterface(std::string fname, std::unique_ptr<LineFormat> fmt, std::shared_ptr<LineFilter> fltr, int bsize = 1000);
   ~LogParserInterface();
 
@@ -68,9 +68,6 @@ public:
 
   void setActiveLine(line_t line);
   void deltaActiveLine(int64_t delta);
-
-  line_t getLineGlobalIdLowerbound(line_t local_line_id);
-  line_t getLineGlobalIdUpperbound(line_t local_line_id);
 
   //std::vector<std::string_view> getFromFirstLine(size_t count)
   

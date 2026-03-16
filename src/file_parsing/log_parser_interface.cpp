@@ -30,10 +30,7 @@ LogParserInterface::LogParserInterface(std::string fname, std::unique_ptr<LineFo
       (found_line = ffr->getNextValidLine(pl)) == true){
     block.lines.push_back(std::move(pl));
     LOG_FCT(5, "Read %d bytes, line is %.*s\n", pl.raw_line.length(), STRING_VIEW_PRINT(block.lines.back().raw_line));
-
-    if(line_local_id % 100 == 0 && line_local_id/100 >= local_to_global_id.size()){
-      local_to_global_id.push_back(pl.line_num);
-    }
+    local_to_global_id.push_back(pl.line_num);
     line_local_id++;
     if(line_local_id == block_size) break; 
   }
@@ -54,6 +51,7 @@ LogParserInterface::~LogParserInterface(){
 void LogParserInterface::reset_and_refill_block(line_t around_global_line){
   LOG_FUNCENTRY(5, "LogParserInterface::reset_and_refill_block");
   
+  local_to_global_id.clear();
   block.lines.clear();
   known_last_line = LINE_T_MAX;
   known_first_line = 0;
@@ -71,9 +69,7 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
     block.lines.push_back(std::move(pl));
     LOG_FCT(9, "Read %d bytes, line is %.*s\n", nread, STRING_VIEW_PRINT(block.lines.back().raw_line));
     if(line_local_id == 0) known_first_line = block.lines[0].line_num;
-    if(line_local_id % 100 == 0 && line_local_id/100 >= local_to_global_id.size()){
-      local_to_global_id.push_back(pl.line_num);
-    }
+    local_to_global_id.push_back(pl.line_num);
     line_local_id++;
     found_anchor = pl.line_num > around_global_line;
     if(found_anchor){ lines_left--; }
@@ -89,7 +85,6 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
 void LogParserInterface::setLineFormat(std::unique_ptr<LineFormat> lf, line_t global_ancore_line){
   ffr->setFormat(std::move(lf));
   reset_and_refill_block(global_ancore_line);
-  local_to_global_id.clear();
 }
 
 LineFormat* LogParserInterface::getLineFormat(){
@@ -101,7 +96,6 @@ LineFormat* LogParserInterface::getLineFormat(){
 void LogParserInterface::setFilter(std::shared_ptr<LineFilter> lf, line_t global_ancore_line){
   ffr->setFilter(lf);
   reset_and_refill_block(global_ancore_line);
-  local_to_global_id.clear();
 }
 
 std::shared_ptr<LineFilter> LogParserInterface::getFilter(){
@@ -192,14 +186,11 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
     block.first_line_local_id++;
     
     block_last_line_local_id++;
-    if(block_last_line_local_id % 100 == 0){
-      if(block_last_line_local_id/100 > local_to_global_id.size()){
-        LOG_EXIT();
-        throw std::runtime_error("Missed a local<->global mapping");
-      }
-      if(block_last_line_local_id/100 == local_to_global_id.size())
-        local_to_global_id.push_back(block.lines.back().line_num);
+    if(block_last_line_local_id > local_to_global_id.size()){
+      LOG_EXIT();
+      throw std::runtime_error("Missed a local<->global mapping");
     }
+    local_to_global_id.push_back(block.lines.back().line_num);
 
     got_req_line = got_req_line || (block.first_line_local_id + block_size - 1 == local_line_id);
     if(got_req_line){
@@ -215,17 +206,6 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   return getLine(local_line_id);
 }
 
-line_t LogParserInterface::getLineGlobalIdLowerbound(line_t local_line_id){
-  size_t idx = local_line_id/100;
-  if(idx >= local_to_global_id.size()) return local_to_global_id.back();
-  return local_to_global_id[idx];
-}
-line_t LogParserInterface::getLineGlobalIdUpperbound(line_t local_line_id){
-  size_t idx = local_line_id/100+1;
-  if(idx >= local_to_global_id.size()) return LINE_T_MAX;
-  return local_to_global_id[idx];
-
-}
 
 void LogParserInterface::jumpToLocalLine(line_t local_line_id){
   LOG_FUNCENTRY(5, "LogParserInterface::jumpToLocalLine");
@@ -251,8 +231,8 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
     }
     // Line is too far before in the file
     // But since it is _before_, we must have gone there already and thus know the lower bound
-    around_global_line = getLineGlobalIdLowerbound(local_line_id);
-    around_local_line = local_line_id - (local_line_id%100);
+    around_global_line = local_to_global_id[local_line_id];
+    around_local_line = local_line_id;
     
   } else { // local > last line of block
     LOG_FCT(5, "Local line is later what current block holds\n");
@@ -263,19 +243,24 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
     }
 
     // Line is later in the file
-    // Maybe we already saw it, in which case we probably know an upperbound,
+    // Maybe we already saw it
     // If not, it means we never saw it, and we need to go there sequentially
-    around_global_line = getLineGlobalIdUpperbound(local_line_id);
-    around_local_line = local_line_id - (local_line_id%100) + 100;
+    if(local_line_id >= local_to_global_id.size()){
+      around_global_line = LINE_T_MAX;
+      around_local_line = local_to_global_id.size()-1;
+    } else {
+      around_global_line = local_to_global_id[local_line_id];
+      around_local_line = local_line_id;
+    }
 
     if(around_global_line == LINE_T_MAX){  // Unkown best we can do is go as far as we explored, and walk from there    
       line_t lb;
 
       assert(local_to_global_id.size() > 0);
 
-      size_t idx = std::min(local_line_id/100, local_to_global_id.size()-1);
+      size_t idx = around_local_line;
       lb = local_to_global_id[idx];
-      line_t start_local_line = idx*100;
+      line_t start_local_line = idx;
       
       block.lines.clear();
       
@@ -293,7 +278,7 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
         }
         block.lines.push_back(std::move(pl));
         if(last_read_local_id == 0) known_first_line = block.lines[0].line_num;
-        if(last_read_local_id % 100 == 0 && last_read_local_id/100 >= local_to_global_id.size()){
+        if(local_line_id >= local_to_global_id.size()){
           local_to_global_id.push_back(pl.line_num);
         }
         last_read_local_id++;
