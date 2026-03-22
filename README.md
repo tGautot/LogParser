@@ -1,23 +1,23 @@
-# LogParser
+![Logram logo](docs/logram_logo_header.svg)
 
-> A fast, terminal-based log viewer that actually understands your logs.
+# Logram
 
-`grep` and `tail` are powerful, but they treat your logs as plain text. LogParser lets you **define the structure** of your log lines, then navigate, filter, and search based on what the fields *mean* — not just what they look like.
+`vim`, `grep` and `tail` are powerful, but they treat your logs as plain text. Logram lets you **define the structure** of your log lines, then navigate, filter, and search based on what the fields *mean* — not just what they look like.
 
 ---
 
 ## The problem
 
-You're staring at thousands of log lines like this:
+You're staring at (tens of) thousands of log lines like this:
 
 ```
-0322 085338 TRACE  :......connect: Attempting connection to 192.168.1.10
-0322 085339 INFO   :......connect: Connection established
-0322 085340 WARN   :......retry: Timeout, retrying...
-0322 085341 ERROR  :......retry: Max retries exceeded
+0322 085338 TRACE [127.0.0.1:25555] :......connect: Attempting connection to 192.168.1.10
+0322 085339 INFO  [127.0.0.1:25555] :......connect: Connection established
+0322 085340 WARN  [127.0.0.1:25555] :......retry: Timeout, retrying...
+0322 085341 ERROR [127.0.0.1:25555] :......retry: Max retries exceeded
 ```
 
-You want to see **only the ERRORs from the `retry` function**. With grep, you're writing fragile regexes. With a log aggregator, you're copy-pasting into a browser. With LogParser, you define the format once and filter by field.
+Truth is, you probably need only a few of these lines, the trick is finding them. With `vim` and `grep`, you write fragile regexes, which will inevitably yield false-positives, and then crawl your way from there. With Logram, you define the format of your logs once, and then you can quickly create complex filters honing in on only what you need.
 
 ---
 
@@ -28,7 +28,7 @@ You want to see **only the ERRORs from the `retry` function**. With grep, you're
 Tell LogParser what your lines look like using a simple format string:
 
 ```
-{INT:Date} {INT:Time} {STR:Level} {CHR:, ,1}:{STR:Source}: {STR:Message}
+{INT:Date} {INT:Time} {STR:Level} :{STR:Source}: {STR:Message}
 ```
 
 This extracts `Date`, `Time`, `Level`, `Source`, and `Message` as typed, named fields.
@@ -54,14 +54,13 @@ Use `/pattern` to find text within your filtered view. `n`/`N` jump to next/prev
 
 ## Features
 
-- **Custom format definitions** — supports `INT`, `DBL`, `STR`, and character-delimited (`CHR`) fields
+- **Custom format definitions** — supports `INT`, `DBL`, `STR` fields (`DATE` support incoming)
 - **Field-based filtering** — `EQUAL`, `CONTAINS`, `BEGINS_WITH`, `ENDS_WITH`, `GREATER`, `SMALLER`, and more
 - **Boolean filter composition** — combine multiple filters with `AND`, `OR`, `XOR`, `NOR`
 - **Vim keybindings** — `hjkl`, `gg`, `G`, `:q`, `/search`, `n`/`N`
 - **Memory-mapped I/O** — handles large log files efficiently without loading them into RAM
-- **Persistent per-file config** — format and settings are remembered per log file in `~/.lr`
+- **Persistent per-file config** — format and settings are remembered per log file in `~/.logram`
 - **ANSI color support** — customize colors for background, text, and selection
-- **Hide malformed lines** — optionally suppress lines that don't match the expected format
 
 ---
 
@@ -71,7 +70,7 @@ Use `/pattern` to find text within your filtered view. `n`/`N` jump to next/prev
 
 ```bash
 git clone <repo-url>
-cd LogParser
+cd Logram
 mkdir build && cd build
 cmake ..
 make
@@ -82,34 +81,51 @@ Requires: C++17, CMake 3.21+, a Unix/Linux system.
 ### Run
 
 ```bash
-./build/bin/lp_term path/to/your.log
+./build/bin/lgm path/to/your.log
 ```
 
-On first open, LogParser creates a profile for this file in `~/.lr`. Set your format string, and it will be remembered next time.
+On first open, Logram creates a profile for this file in `~/.logram`. Set your format string, and it will be remembered next time.
 
 ---
 
 ## Format string syntax
 
-A format string is a sequence of **typed fields** separated by literal characters:
+A format string is a sequence of **typed fields**:
 
 | Type | Syntax | Matches |
 |------|--------|---------|
 | Integer | `{INT:Name}` | A sequence of digits |
 | Float | `{DBL:Name}` | A decimal number |
 | String | `{STR:Name}` | Any text up to the next delimiter |
-| Character-delimited | `{CHR:delim,Name}` | Text up to a specific character |
+| Character | `{CHR:Name,target,repeat}` | Occurence of a specific (repeating) char |
 
-Field names are optional but required for filtering.
+Field names are optional but required for filtering. For a more complete view on format string, please refer to the usage guide (TODO).
 
-**Example** — a Zookeeper-style log line:
+
+**Example** 
+For a log file containing lines like this one:
 ```
-2015-07-29 17:41:41,536 - INFO  [MainThread:Server@42] - Connection accepted
+0322 085339 INFO  [localhost:25555] :......connect: Connection established
 ```
-Format:
+You could create the following format
 ```
-{INT:Year}-{INT:Month}-{INT:Day} {INT:Hour}:{INT:Min}:{INT:Sec},{INT:Ms} - {STR:Level} [{STR:Thread}] - {STR:Message}
+{INT:Date} {INT:Time} {STR:Level} [{STR:IP}:{INT:Port}] :{STR:Source}: {STR:Message}
 ```
+
+You have thrown away all the whitespaces and formatting characters, and now you have 7 fields on which you can do filtering! The extracted values would be the following:
+
+| Field | Value |
+| ----- | ----- |
+| Date  | 322   |
+| Time  | 85339 |
+| Level | "INFO"  |
+| IP    | "localhost" |
+| Port  | 25555 |
+| Source | "......connect" |
+| Message | "Connection established" |
+
+Note: with a simple change to the format string you could even get rid of the dots in the `Source` Field! For this, refer to the format string documentation (TODO) 
+
 
 ---
 
@@ -123,7 +139,7 @@ Format:
 | `k` / `↑` | Move up |
 | `gg` | Jump to start of file |
 | `G` | Jump to end of file |
-| `:N` | Jump to line N |
+| `:<number>` | Jump to line <number> |
 | `/` | Enter search mode |
 | `n` / `N` | Next / previous match |
 | `:q` | Quit |
@@ -132,19 +148,23 @@ Format:
 
 ## Why not just use `grep`?
 
-| | grep / tail | LogParser |
-|---|-------------|-----------|
-| Understands log structure | No | Yes |
-| Filter by field value | No | Yes |
-| Combine multiple filters | Awkward | Yes |
-| Navigate large files interactively | No | Yes |
-| Remembers your format per file | No | Yes |
-| Handles GB-scale files | Partially | Yes |
+| | vim | grep / tail | Logram |
+|---|-------------|--------|--------|
+| Handles GB-scale files | Yes | Yes | Yes |
+| Combine multiple filters | No | Awkward | Yes |
+| Navigate large files interactively | Yes | No | Yes |
+| Understands log structure | No | No | Yes |
+| Filter by field value | No | No | Yes |
 
-LogParser is not a replacement for log aggregation platforms — it's a replacement for the ad-hoc grep sessions you run when you're already on the machine and need answers fast.
+Logram is not a replacement for log aggregation platforms — it's a replacement for the ad-hoc vim/grep sessions you run when you're already on the machine and need answers fast.
 
 ---
+
 
 ## License
 
 [MIT](LICENSE)
+
+## Footnote: Modules
+
+Logram in its current state "has support for modules" (please notice the quotes). If you would like to add some capabilities to Logram that would fit your logs/workflows, you can do so by creating modules. Modules give you an easy way to "listen" to user input in the terminal, react to it and change the state of the program. Most of the interactions between the user and the TUI available by default are done via modules.  Note that this is in a _VERY_ experimental stage, so you might be somewhat limit. Please refer to the usage guide for more info (TODO)
