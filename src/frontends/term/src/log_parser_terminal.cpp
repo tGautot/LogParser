@@ -176,16 +176,14 @@ bool LogParserTerminal::isCursorOnLastLine(){
 
 void LogParserTerminal::updateDisplayState(){
   term_state.displayed_pls.clear();
-  for(int i = 0; i < term_state.nrows-1; i++){
-    line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
-    term_state.displayed_pls.push_back(lineinfo.line);
-    if(lineinfo.line != nullptr) term_state.info_col_size = 2/*size of "~ "*/ + std::to_string(lineinfo.line->line_num).size();
-  }
-
   ConfigHandler cfg;
   bool local_nums = cfg.get(m_profile, CFG_LINE_NUM_MODE) == "local";
-  if(local_nums)
-    term_state.info_col_size = 2 + std::to_string(term_state.nrows - term_state.num_status_line).size();
+  for(int i = 0; i < term_state.nrows-term_state.num_status_line; i++){
+    line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
+    term_state.displayed_pls.push_back(lineinfo.line);
+    if(lineinfo.line != nullptr) term_state.info_col_size = 2/*size of "~ "*/ 
+        + std::to_string(local_nums ? i+term_state.line_offset : lineinfo.line->line_num).size();
+  }
 }
 
 void LogParserTerminal::drawRows(){
@@ -195,18 +193,15 @@ void LogParserTerminal::drawRows(){
   // Render file lines
   std::string_view fetched_line;
   ConfigHandler cfg;
-  bool hide_bad_fmt = cfg.get(m_profile, CFG_HIDE_BAD_FMT)  == "true";
   bool local_nums   = cfg.get(m_profile, CFG_LINE_NUM_MODE) == "local";
   frame_str += ansi("bg_" + cfg.get(m_profile, CFG_BG_COLOR), false);
   frame_str += ansi("fg_" + cfg.get(m_profile, CFG_TEXT_COLOR), false);
-  int local_line_num = 0;
   for(int i = 0; i < term_state.nrows-term_state.num_status_line; i++){
     const ProcessedLine* pl = term_state.displayed_pls[i];
-    if(pl != nullptr && !(hide_bad_fmt && !pl->well_formated)){
-      local_line_num++;
+    if(pl != nullptr ){
       fetched_line = pl->raw_line;
       LOG_FCT(9, "Adding to display line(%d): '%s'\n", pl->well_formated, std::string(fetched_line).data());
-      std::string line_num_str = local_nums ? std::to_string(local_line_num) : std::to_string(pl->line_num);
+      std::string line_num_str = local_nums ? std::to_string(term_state.line_offset+i) : std::to_string(pl->line_num);
       // Spaces before linenum, if needed
       if(!pl->well_formated){
         frame_str += ansi("bg_red");
@@ -245,6 +240,7 @@ void LogParserTerminal::drawRows(){
         match_pos += term_state.highlight_word.length() + start_invert_tag.length() + end_invert_tag.length();
       }
 
+      // TODO "added_ansi_chars" might count ansi chars added that shouldn't be visible, making the following math invalid
       if(fetched_line.size() + term_state.info_col_size > term_state.ncols){
         formatted_line = formatted_line.substr(0, last_visible_char+added_ansi_chars);
       }
@@ -260,7 +256,7 @@ void LogParserTerminal::drawRows(){
     frame_str += "\r\n";
   }
   
-  char buf[81];
+  char buf[80];
 
   frame_str += ansi("bg_" + cfg.get(m_profile, CFG_SL_BG_COLOR), false);
   frame_str += ansi("fg_" + cfg.get(m_profile, CFG_SL_TXT_COLOR), false);
@@ -276,13 +272,14 @@ void LogParserTerminal::drawRows(){
     frame_str += buf2;
   } else {
     if(term_state.input_mode == RAW) {
-      snprintf(buf, 80, "%s", term_state.raw_input.data());
+      std::string command = term_state.raw_input.substr(0,term_state.ncols);
+      frame_str += command + std::string(term_state.ncols - command.length(), ' ');
     } else {
       snprintf(buf, 80, "Unknown input mode %d", term_state.input_mode);
-    }
-    frame_str += buf;
-    if(strlen(buf) < term_state.ncols){
-      frame_str += std::string(term_state.ncols-strlen(buf), ' ');
+      frame_str += buf;
+      if(strlen(buf) < term_state.ncols){
+        frame_str += std::string(term_state.ncols-strlen(buf), ' ');
+      }
     }
   } 
   frame_str += ANSI_RESET;
