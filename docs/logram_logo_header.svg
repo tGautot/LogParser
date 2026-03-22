@@ -1,0 +1,24 @@
+<svg width="100%" viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Mark -->
+  <rect x="112" y="60" width="4" height="10" fill="#1D9E75" opacity="0.20"></rect>
+  <rect x="112" y="78" width="4" height="10" fill="#1D9E75" opacity="0.45"></rect>
+  <rect x="112" y="96" width="4" height="10" fill="#1D9E75" opacity="0.85"></rect>
+
+  <rect x="120" y="60" width="108" height="10" rx="3" fill="#1D9E75" opacity="0.25"></rect>
+  <rect x="120" y="78" width="108" height="10" rx="3" fill="#1D9E75" opacity="0.58"></rect>
+  <rect x="120" y="96" width="108" height="10" rx="3" fill="#1D9E75" opacity="1"></rect>
+
+  <path d="M236 57 L250 57 L250 109 L236 109" fill="none" stroke="#1D9E75" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter"></path>
+  <rect x="246" y="98" width="8" height="8" fill="#1D9E75"></rect>
+
+  <!-- Logotype -->
+  <text x="280" y="101" font-family="'Share Tech Mono', 'Courier New', monospace" font-size="54" font-weight="400" fill="#1D9E75" dominant-baseline="auto" letter-spacing="1">Logram</text>
+
+  <!-- Underline spanning full logo width -->
+  <rect x="112" y="128" width="436" height="2" fill="#1D9E75" opacity="0.35"></rect>
+
+  <!-- Tagline centered under the whole logo -->
+  <text x="330" y="144" font-family="'Share Tech Mono', 'Courier New', monospace" font-size="12" fill="#1D9E75" opacity="0.55" text-anchor="middle" dominant-baseline="auto" letter-spacing="2">structured log reader for your terminal</text>
+
+</svg>
