@@ -15,11 +15,13 @@ add_executable(run_tests
   test_filtered_file_reader.cpp
   test_log_parser_interface.cpp
   test_cyclic_deque.cpp
-  test_filters.cpp)
+  test_filters.cpp
+  test_log_parser_terminal.cpp)
 
 target_link_libraries(run_tests
   PRIVATE
     logging
     Catch2::Catch2WithMain
     line_parsing
-    file_parsing)
+    file_parsing
+    logramtui)

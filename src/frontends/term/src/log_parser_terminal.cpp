@@ -139,6 +139,14 @@ static void setupTerm(term_state_t stt){
 
 LogParserTerminal::LogParserTerminal(const std::string& filename) : LogParserTerminal(filename, nullptr){}
 
+LogParserTerminal::LogParserTerminal(LogParserInterface* lpi_ptr)
+  : lpi(lpi_ptr), m_profile(CFG_COMMON_PROFILE) {
+  term_state.cx = 4;
+  term_state.cy = 0;
+  term_state.input_mode = InputMode::ACTION;
+  term_state.raw_input = "";
+}
+
 LogParserTerminal::LogParserTerminal(const std::string& filename, std::unique_ptr<LineFormat> line_format){
   lpi = new LogParserInterface(filename, std::move(line_format), nullptr);
   m_profile = ConfigHandler().getProfileForFile(std::filesystem::canonical(filename).string());

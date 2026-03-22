@@ -30,6 +30,7 @@ public:
 
   LogParserTerminal(const std::string& filename);
   LogParserTerminal(const std::string& filename, std::unique_ptr<LineFormat> line_format);
+  LogParserTerminal(LogParserInterface* lpi_ptr); // For unit testing (no terminal setup)
 
   std::vector<std::pair<std::string, user_action_t>> user_input_mappings;
   std::vector<ActionCallbackPtr> action_cbs;

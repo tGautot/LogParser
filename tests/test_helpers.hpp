@@ -24,7 +24,7 @@ extern "C" {
 
 inline void setup() {
   logger_setup();
-  logger_set_minlvl(5);
+  logger_set_minlvl(0);
 }
 
 inline void teardown() {
