@@ -166,23 +166,29 @@ bool LogParserTerminal::isCursorOnLastLine(){
   return (term_state.cy + term_state.line_offset == lpi->known_last_line);
 }
 
-void LogParserTerminal::drawRows(){
-  LOG_FUNCENTRY(5, "LogParserTerminal::drawRows");
-  frame_str += ESC_CMD "J";
+void LogParserTerminal::updateDisplayState(){
   term_state.displayed_pls.clear();
   for(int i = 0; i < term_state.nrows-1; i++){
     line_info_t lineinfo = lpi->getLine(i+term_state.line_offset);
     term_state.displayed_pls.push_back(lineinfo.line);
-    if(lineinfo.line != nullptr) term_state.info_col_size = 2/*size of "~ "*/ + std::to_string(lineinfo.line->line_num).size(); 
-  } 
-  
+    if(lineinfo.line != nullptr) term_state.info_col_size = 2/*size of "~ "*/ + std::to_string(lineinfo.line->line_num).size();
+  }
+
+  ConfigHandler cfg;
+  bool local_nums = cfg.get(m_profile, CFG_LINE_NUM_MODE) == "local";
+  if(local_nums)
+    term_state.info_col_size = 2 + std::to_string(term_state.nrows - term_state.num_status_line).size();
+}
+
+void LogParserTerminal::drawRows(){
+  LOG_FUNCENTRY(5, "LogParserTerminal::drawRows");
+  frame_str += ESC_CMD "J";
+
   // Render file lines
   std::string_view fetched_line;
   ConfigHandler cfg;
   bool hide_bad_fmt = cfg.get(m_profile, CFG_HIDE_BAD_FMT)  == "true";
   bool local_nums   = cfg.get(m_profile, CFG_LINE_NUM_MODE) == "local";
-  if(local_nums)
-    term_state.info_col_size = 2 + std::to_string(term_state.nrows - term_state.num_status_line).size();
   frame_str += ansi("bg_" + cfg.get(m_profile, CFG_BG_COLOR), false);
   frame_str += ansi("fg_" + cfg.get(m_profile, CFG_TEXT_COLOR), false);
   int local_line_num = 0;
@@ -274,30 +280,35 @@ void LogParserTerminal::drawRows(){
   frame_str += ANSI_RESET;
 }
 
-
-void LogParserTerminal::loop(){
+void LogParserTerminal::computeFrameStr(){
   char buf[32];
 
+  //frame_str += ESC_CMD "2J";
+  getWindowSize(&term_state.nrows, &term_state.ncols);
+  frame_str = "";
+  frame_str += ESC_CMD "?25l"; // Disable cursor display
+  frame_str += ESC_CMD "H"; // Set cursor at top left position
+  updateDisplayState();
+  drawRows();
+  
+  // Position cursor
+  if(term_state.input_mode == RAW){
+    snprintf(buf, 32, ESC_CMD "%d;%zuH", term_state.nrows, term_state.raw_input_cursor + 1);
+  } else {
+    snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.cy+1, term_state.cx+1);
+  }
+  
+  frame_str += buf;
+  frame_str += ESC_CMD "?25h"; // enable cursor display
+}
+
+
+void LogParserTerminal::loop(){
   while (1) {
-    term_state.frame_num++;
-    //frame_str += ESC_CMD "2J";
-    getWindowSize(&term_state.nrows, &term_state.ncols);
-    frame_str = "";
-    frame_str += ESC_CMD "?25l"; // Disable cursor display
-    frame_str += ESC_CMD "H"; // Set cursor at top left position
-    drawRows();
-
-    // Position cursor
-    if(term_state.input_mode == RAW){
-      snprintf(buf, 32, ESC_CMD "%d;%zuH", term_state.nrows, term_state.raw_input_cursor + 1);
-    } else {
-      snprintf(buf, 32, ESC_CMD "%d;%dH", term_state.cy+1, term_state.cx+1);
-    }
-
-    frame_str += buf;
-    frame_str += ESC_CMD "?25h"; // enable cursor display
+    computeFrameStr();
     write(STDOUT_FILENO, frame_str.data(), frame_str.size());
     handleUserAction(getUserAction());
+    term_state.frame_num++;
   }
 }
 
@@ -307,36 +318,86 @@ inline char readByte(){
   return c;
 }
 
+void LogParserTerminal::insertAtRawCursor(const std::string& s){
+  term_state.raw_input.insert(term_state.raw_input_cursor, s);
+  term_state.raw_input_cursor += s.size();
+}
+
+void LogParserTerminal::submitRawInput(){
+  for(auto cmd_cb : command_cbs){
+    cmd_cb(term_state.raw_input, term_state, lpi);
+  }
+  term_state.input_mode = ACTION;
+  term_state.raw_input = "";
+  term_state.raw_input_cursor = 0;
+}
+
+void LogParserTerminal::backspaceRawInput(){
+  if(term_state.raw_input_cursor > 1) {
+    term_state.raw_input.erase(term_state.raw_input_cursor - 1, 1);
+    term_state.raw_input_cursor--;
+  }
+}
+
+void LogParserTerminal::processRawCsiSequence(const std::string& params, char final_byte){
+  if(final_byte == 'C' && params.empty()) { // right arrow
+    if(term_state.raw_input_cursor < term_state.raw_input.size())
+      term_state.raw_input_cursor++;
+  } else if(final_byte == 'D' && params.empty()) { // left arrow
+    if(term_state.raw_input_cursor > 1)
+      term_state.raw_input_cursor--;
+  } else if(final_byte == '~' && params == "3") { // delete key
+    if(term_state.raw_input_cursor < term_state.raw_input.size())
+      term_state.raw_input.erase(term_state.raw_input_cursor, 1);
+  } else { // unknown CSI: display verbatim
+    std::string r = "\\e[" + params;
+    if((unsigned char)final_byte < 32) { r += '^'; r += (char)('@' + final_byte); }
+    else r += final_byte;
+    insertAtRawCursor(r);
+  }
+}
+
+void LogParserTerminal::processRawNonCsiEsc(char c2){
+  insertAtRawCursor("\\e");
+  if((unsigned char)c2 < 32) insertAtRawCursor({'^', (char)('@' + c2)});
+  else insertAtRawCursor(std::string(1, c2));
+}
+
+user_action_t LogParserTerminal::matchInputSequence(const std::string& seq, bool& partial_match){
+  LOG_FUNCENTRY(3, "LogParserTerminal::matchInputSequence");
+  partial_match = false;
+  LOG_FCT(3, "Trying to match input sequence %s against %d mappings\n", seq.data(), user_input_mappings.size());
+  for(auto mapping : user_input_mappings){
+    std::string match = mapping.first;
+    if(match.size() < seq.size()) continue;
+    if(match.rfind(seq, 0) == 0){
+      if(match.size() == seq.size()){
+        LOG_FCT(3, "Found match, action id is %d\n", mapping.second);
+        return mapping.second;
+      }
+      partial_match = true;
+    }
+  }
+  return ACTION_NONE;
+}
+
 user_action_t LogParserTerminal::getUserAction(){
   LOG_FUNCENTRY(3, "LogParserTerminal::getUserAction");
   std::string seq = "";
   bool need_next_byte = true;
-  
+
   while(1){
     if(term_state.input_mode == RAW){
       char c = readByte();
       LOG(5, "In raw mode and read char %d\n", c);
 
-      auto insert_at_cursor = [&](const std::string& s) {
-        term_state.raw_input.insert(term_state.raw_input_cursor, s);
-        term_state.raw_input_cursor += s.size();
-      };
-
       if(c == 13) { // <Enter>
         LOG_FCT(3, "Sending command '%s' to modules.\n", term_state.raw_input.data());
-        for(auto cmd_cb : command_cbs){
-          cmd_cb(term_state.raw_input, term_state, lpi);
-        }
-        term_state.input_mode = ACTION;
-        term_state.raw_input = "";
-        term_state.raw_input_cursor = 0;
+        submitRawInput();
         break;
       }
       if(c == 127) { // <Backspace>
-        if(term_state.raw_input_cursor > 1) {
-          term_state.raw_input.erase(term_state.raw_input_cursor - 1, 1);
-          term_state.raw_input_cursor--;
-        }
+        backspaceRawInput();
         break;
       }
       if(c == ESC_CHR) {
@@ -349,36 +410,20 @@ user_action_t LogParserTerminal::getUserAction(){
             params += final_byte;
             final_byte = readByte();
           }
-          if(final_byte == 'C' && params.empty()) { // right arrow
-            if(term_state.raw_input_cursor < term_state.raw_input.size())
-              term_state.raw_input_cursor++;
-          } else if(final_byte == 'D' && params.empty()) { // left arrow
-            if(term_state.raw_input_cursor > 1)
-              term_state.raw_input_cursor--;
-          } else if(final_byte == '~' && params == "3") { // delete key
-            if(term_state.raw_input_cursor < term_state.raw_input.size())
-              term_state.raw_input.erase(term_state.raw_input_cursor, 1);
-          } else { // unknown CSI: display verbatim
-            std::string r = "\\e[" + params;
-            if((unsigned char)final_byte < 32) { r += '^'; r += (char)('@' + final_byte); }
-            else r += final_byte;
-            insert_at_cursor(r);
-          }
-        } else { // ESC + non-CSI: display \e then c2
-          insert_at_cursor("\\e");
-          if((unsigned char)c2 < 32) insert_at_cursor({'^', (char)('@' + c2)});
-          else insert_at_cursor(std::string(1, c2));
+          processRawCsiSequence(params, final_byte);
+        } else {
+          processRawNonCsiEsc(c2);
         }
         break;
       }
       if((unsigned char)c < 32) {
-        insert_at_cursor({'^', (char)('@' + c)});
+        insertAtRawCursor({'^', (char)('@' + c)});
       } else {
-        insert_at_cursor(std::string(1, c));
+        insertAtRawCursor(std::string(1, c));
       }
       break;
     }
-    
+
     if(need_next_byte) seq += readByte();
     if(seq == ":"){
       term_state.input_mode = RAW;
@@ -388,20 +433,12 @@ user_action_t LogParserTerminal::getUserAction(){
     }
     if(seq == "q") exit(0);
     bool partial_match = false;
-    LOG_FCT(3, "Trying to match input sequence %s against %d mappings\n", seq.data(), user_input_mappings.size());
-    for(auto mapping : user_input_mappings){
-      std::string match = mapping.first;
-      if(match.size() < seq.size()) continue;
-      if(match.rfind(seq, 0) == 0){
-        if(match.size() == seq.size()){
-          LOG_FCT(3, "Found match, action id is %d\n", mapping.second);
-          LOG_EXIT();
-          return mapping.second;
-        }
-        partial_match = true; 
-      }
+    user_action_t matched = matchInputSequence(seq, partial_match);
+    if(matched != ACTION_NONE){
+      LOG_EXIT();
+      return matched;
     }
-    
+
     LOG_FCT(3, "found no match, patial match: %d\n", partial_match);
 
     need_next_byte = true;

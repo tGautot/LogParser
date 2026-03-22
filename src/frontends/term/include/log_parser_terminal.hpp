@@ -42,9 +42,19 @@ public:
 
   bool isCursorOnLastLine();
 
+  void computeFrameStr(); 
+
+  void insertAtRawCursor(const std::string& s);
+  void submitRawInput();
+  void backspaceRawInput();
+  void processRawCsiSequence(const std::string& params, char final_byte);
+  void processRawNonCsiEsc(char c2);
+  user_action_t matchInputSequence(const std::string& seq, bool& partial_match);
+
   user_action_t getUserAction();
   void handleUserAction(user_action_t action);
 
+  void updateDisplayState();
   void drawRows();
   void loop();
 
