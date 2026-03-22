@@ -1,6 +1,6 @@
 #include "line_parser.hpp"
 #include <memory>
-
+#include "logging.hpp"
 
 std::shared_ptr<Parser> Parser::fromLineFormat(std::unique_ptr<LineFormat> lfmt){
   std::shared_ptr<Parser> p = std::make_shared<Parser>();
@@ -34,6 +34,11 @@ std::shared_ptr<Parser> Parser::fromLineFormat(std::unique_ptr<LineFormat> lfmt)
       str_parsing->ft = FieldType::STR;
       p->addParsingStep(str_parsing);
     }
+    else if(lfield->ft == FieldType::WS){
+      parse_instruction_t* ws_parsing = (parse_instruction_t*)malloc(sizeof(parse_instruction_t));;
+      ws_parsing->ft = FieldType::WS;
+      p->addParsingStep(ws_parsing);
+    }
   }
   p->format = std::move(lfmt);
   return p;
@@ -45,28 +50,21 @@ Parser::~Parser(){
   }
 }
 
-void Parser::clearParsingSteps(){
-  parsing_routine.clear();
-}
 
 void Parser::addParsingStep(parse_instruction_t* inst){
   parsing_routine.push_back(inst);
 }
 
-#include "logging.hpp"
-
 bool Parser::parseLine(std::string_view line, ParsedLine* ret){
-  //LOG(1, "Going to parse line with format %p\n", format.get());
   if(format == nullptr) return false;
+  LOG_FUNCENTRY(9, "Parser::parseLine");
   std::vector<parse_instruction_t*>::iterator iter;
 
   const char* s = line.data();
   int nint_parsed = 0, ndbl_parsed = 0, nchr_parsed = 0, nstr_parsed = 0;
-  //LOG(1, "Going into loop!!!!!!!!!e\n");
   for(iter = parsing_routine.begin(); iter != parsing_routine.end(); iter++){
     parse_instruction_t* inst = *iter;
-    //LOG(1, "Parsing new step, field type=%d\n", inst->ft);
-    //std::cout << "pointer is now at char " << *s  << " (offset: " << s-line.data() << ")" << std::endl;
+    LOG_FCT(9, "New inst (%d) starting at char %c (id %d)\n",  inst->ft, *s, (s - line.data())/sizeof(char));
     int res = 0;
     switch(inst->ft){
     case FieldType::INT:
@@ -81,11 +79,19 @@ bool Parser::parseLine(std::string_view line, ParsedLine* ret){
     case FieldType::STR:
       res = parse_str(&s, (_StrFieldOption*) inst->format_args, ret->getStrField(nstr_parsed++));
       break;
+    case FieldType::WS:
+      res = parse_ws(&s);
+      break;
     default:
       res = -1;
     }
-    if(res != 0) return false;
+    if(res != 0) {
+      LOG(1, "Failed parsing of line at step %d (FieldType: %d, next char is %c at pos %d)\n", std::distance(parsing_routine.begin(), iter), inst->ft, *s, (s - line.data())/sizeof(char));
+      LOG_EXIT();
+      return false;
+    }
   }
+  LOG_EXIT();
   return true;
 
 }

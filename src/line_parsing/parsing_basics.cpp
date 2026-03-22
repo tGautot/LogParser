@@ -1,6 +1,8 @@
 #include "parsing_basics.hpp"
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 
 int parse_int(const char** s, int64_t* res){  
   *((int64_t*)res) = atol(*s);
@@ -39,18 +41,31 @@ int parse_chr(const char** s, _ChrFieldOption* p, void* res){
 int parse_str(const char** s, _StrFieldOption* p, void* res){
   //std::cout << "Parsing STR, stop type " << p->stop_type << ", delim " << p->delim << std::endl;
   int nchar = 0;
+  auto not_eol = [&s, &nchar]()->bool{return (*s)[nchar] != 0 && (*s)[nchar] != '\n';};
   if(p->stop_type == StrFieldStopType::NCHAR){
     nchar = p->nchar;
   }
-  if(p->stop_type == StrFieldStopType::DELIM){
-    while((*s)[nchar] != p->delim && (*s)[nchar] != 0 && (*s)[nchar] != '\n'){
-      //std::cout << "Now at char " << nchar << ": " << (*s)[nchar] << std::endl; 
+  else if(p->stop_type == StrFieldStopType::DELIM){    
+    while((*s)[nchar] != p->delim && not_eol()){
       nchar++;
     }
+  }
+  else if (p->stop_type == StrFieldStopType::ANY_WS){
+    while( !std::isspace((*s)[nchar]) && not_eol()){
+      nchar++;
+    }
+  } 
+  else {
+    throw std::runtime_error("Unknown StrFieldStopType");
   }
   
   std::string_view* res_sv = (std::string_view*) res;
   *res_sv = std::string_view(*s, nchar);
   *s += nchar;
+  return 0;
+}
+
+int parse_ws(const char** s){
+  while(**s != 0 && **s != '\n' && std::isspace(**s)){(*s)++;}
   return 0;
 }

@@ -22,7 +22,7 @@ TEST_CASE("Basic line parsing") {
     }
     if (i == 0) {
       REQUIRE(*(pl->getIntField(0)) == 322);
-      REQUIRE(*(pl->getChrField(0)) == ' ');
+      REQUIRE(*(pl->getChrField(0)) == ':');
       REQUIRE(*(pl->getIntField(1)) == 85338);
       REQUIRE(*(pl->getStrField(0)) == std::string_view("TRACE"));
       REQUIRE(*(pl->getStrField(1)) == std::string_view("router_forward_getOI"));
@@ -33,7 +33,7 @@ TEST_CASE("Basic line parsing") {
   REQUIRE(i == 62);
   // Verify last line's content
   REQUIRE(*(pl->getIntField(0)) == 322);
-  REQUIRE(*(pl->getChrField(0)) == ' ');
+  REQUIRE(*(pl->getChrField(0)) == ':');
   REQUIRE(*(pl->getIntField(1)) == 85424);
   REQUIRE(*(pl->getStrField(0)) == std::string_view("TRACE"));
   REQUIRE(*(pl->getStrField(1)) == std::string_view("router_forward_getOI"));

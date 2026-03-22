@@ -15,6 +15,7 @@ int parse_int(const char** s, int64_t* res);
 int parse_dbl(const char** s, double* res);
 int parse_chr(const char** s, _ChrFieldOption* fmtagrs, void* res);
 int parse_str(const char** s, _StrFieldOption* fmtagrs, void* res);
+int parse_ws (const char** s);
 
 
 #define STR_PARSE_STOP_DELIM 0

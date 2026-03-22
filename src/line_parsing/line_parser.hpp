@@ -13,9 +13,6 @@ public:
   static std::shared_ptr<Parser> fromLineFormat(std::unique_ptr<LineFormat> lf);
   ~Parser();
 
-  //void set_filter()
-
-  void clearParsingSteps();
   void addParsingStep(parse_instruction_t* inst);
 
   bool parseLine(std::string_view line, ParsedLine* ret);

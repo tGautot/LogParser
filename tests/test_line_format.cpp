@@ -5,23 +5,22 @@
 
 TEST_CASE("Line Format specifier parsing") {
   setup();
-  std::string spec = "{INT:Date} {INT:Time} {STR:Level} {CHR:, ,1}:{CHR:,.,1}{STR:Source}:{CHR:, ,1}{STR:Mesg}";
+  std::string spec = "{INT:Date} {INT:Time} {STR:Level} :{CHR:,.,1}{STR:Source}:{CHR:, ,1}{STR:Mesg}";
   std::unique_ptr<LineFormat> lf = LineFormat::fromFormatString(spec);
   lf->toString();
-  REQUIRE(lf->fields.size() == 13);
-  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[0])  != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[1])  != nullptr);
-  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[2])  != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[3])  != nullptr);
-  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[4])  != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[5])  != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[6])  != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[7])  != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[8])  != nullptr);
-  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[9])  != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[10]) != nullptr);
-  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[11]) != nullptr);
-  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[12]) != nullptr);
+  REQUIRE(lf->fields.size() == 12);
+  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[0])     != nullptr);
+  REQUIRE(dynamic_cast<WhitespaceField*>(lf->fields[1])  != nullptr); // space in format → WS
+  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[2])     != nullptr);
+  REQUIRE(dynamic_cast<WhitespaceField*>(lf->fields[3])  != nullptr); // space in format → WS
+  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[4])     != nullptr);
+  REQUIRE(dynamic_cast<WhitespaceField*>(lf->fields[5])  != nullptr); // space in format → WS
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[6])     != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[7])     != nullptr);
+  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[8])     != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[9])    != nullptr);
+  REQUIRE(dynamic_cast<LineChrField*>(lf->fields[10])    != nullptr);
+  REQUIRE(dynamic_cast<LineStrField*>(lf->fields[11])    != nullptr);
 
   std::shared_ptr<Parser> p  = Parser::fromLineFormat(std::move(lf));
   ParsedLine* pl = new ParsedLine(p->format.get());
@@ -70,23 +69,37 @@ TEST_CASE("LineFormat - getFieldFromName") {
 TEST_CASE("LineFormat - field counts") {
   setup();
   std::unique_ptr<LineFormat>  lf = getDefaultLineFormat();
-  // getDefaultLineFormat: 2 INT, 0 DBL, 7 CHR, 3 STR
-  REQUIRE(lf->getNIntFields()    == 2);
-  REQUIRE(lf->getNDoubleFields() == 0);
-  REQUIRE(lf->getNCharFields()   == 7);
-  REQUIRE(lf->getNStringFields() == 3);
+  // getDefaultLineFormat: 2 INT, 0 DBL, 3 CHR, 3 STR, 4 WS
+  REQUIRE(lf->getNIntFields()        == 2);
+  REQUIRE(lf->getNDoubleFields()     == 0);
+  REQUIRE(lf->getNCharFields()       == 3);
+  REQUIRE(lf->getNStringFields()     == 3);
+  REQUIRE(lf->getNWhiteSpaceFields() == 4);
+  teardown();
+}
+
+TEST_CASE("LineFormat - fromFormatString produces WhitespaceField for spaces") {
+  setup();
+  std::unique_ptr<LineFormat> lf = LineFormat::fromFormatString("{INT:A} {INT:B}");
+  REQUIRE(lf->fields.size() == 3);
+  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[0])    != nullptr);
+  REQUIRE(dynamic_cast<WhitespaceField*>(lf->fields[1]) != nullptr);
+  REQUIRE(dynamic_cast<LineIntField*>(lf->fields[2])    != nullptr);
+  REQUIRE(lf->getNIntFields()        == 2);
+  REQUIRE(lf->getNWhiteSpaceFields() == 1);
   teardown();
 }
 
 TEST_CASE("LineFormat - DBL field parsing") {
   setup();
-  // Format: INT, space (literal CHR), DBL
+  // Format: INT, whitespace, DBL
   std::string spec = "{INT:Count} {DBL:Score}";
   std::unique_ptr<LineFormat>  lf   = LineFormat::fromFormatString(spec);
 
-  REQUIRE(lf->getNIntFields()    == 1);
-  REQUIRE(lf->getNDoubleFields() == 1);
-  REQUIRE(lf->getNCharFields()   == 1);
+  REQUIRE(lf->getNIntFields()        == 1);
+  REQUIRE(lf->getNDoubleFields()     == 1);
+  REQUIRE(lf->getNCharFields()       == 0);
+  REQUIRE(lf->getNWhiteSpaceFields() == 1);
 
   SECTION("getFieldFromName returns LineDblField") {
     LineField* score = lf->getFieldFromName("Score");
@@ -104,5 +117,39 @@ TEST_CASE("LineFormat - DBL field parsing") {
     delete pl;
   }
 
+  teardown();
+}
+
+TEST_CASE("Parser - WhitespaceField parsing") {
+  setup();
+  auto lf = LineFormat::fromFormatString("{INT:A} {INT:B}");
+  auto p  = Parser::fromLineFormat(std::move(lf));
+  ParsedLine* pl = new ParsedLine(p->format.get());
+
+  SECTION("single space") {
+    REQUIRE(p->parseLine("10 20", pl));
+    REQUIRE(*(pl->getIntField(0)) == 10);
+    REQUIRE(*(pl->getIntField(1)) == 20);
+  }
+
+  SECTION("multiple spaces") {
+    REQUIRE(p->parseLine("10   20", pl));
+    REQUIRE(*(pl->getIntField(0)) == 10);
+    REQUIRE(*(pl->getIntField(1)) == 20);
+  }
+
+  SECTION("tab character") {
+    REQUIRE(p->parseLine("10\t20", pl));
+    REQUIRE(*(pl->getIntField(0)) == 10);
+    REQUIRE(*(pl->getIntField(1)) == 20);
+  }
+
+  SECTION("mixed whitespace") {
+    REQUIRE(p->parseLine("10 \t 20", pl));
+    REQUIRE(*(pl->getIntField(0)) == 10);
+    REQUIRE(*(pl->getIntField(1)) == 20);
+  }
+
+  delete pl;
   teardown();
 }

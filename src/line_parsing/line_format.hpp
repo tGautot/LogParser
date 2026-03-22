@@ -7,7 +7,7 @@
 #include <map>
 
 enum FieldType {
-  INT, DBL, CHR, STR
+  INT, DBL, CHR, STR, WS
 };
 
 class LineField{
@@ -53,7 +53,7 @@ public:
 };
 
 enum StrFieldStopType {
-  NCHAR, DELIM
+  NCHAR, DELIM, ANY_WS
 };
 
 class _StrFieldOption {
@@ -77,15 +77,20 @@ public:
   }
 };
 
+class WhitespaceField : public LineField {
+public: 
+  WhitespaceField() : LineField("", FieldType::WS) {}
+};
+
 
 
 class LineFormat {
   std::map<std::string, LineField*> name_to_field;
 public:
   std::vector<LineField*> fields;
-  int nint, ndbl, nchr, nstr;
+  int nint, ndbl, nchr, nstr, nws;
 
-  LineFormat() : nint(0), ndbl(0), nchr(0), nstr(0){}
+  LineFormat() : nint(0), ndbl(0), nchr(0), nstr(0), nws(0){}
   ~LineFormat(){
     for(auto field : fields){
       delete field;
@@ -96,6 +101,7 @@ public:
   int getNDoubleFields() const { return ndbl; };
   int getNCharFields() const { return nchr; };
   int getNStringFields() const { return nstr; };
+  int getNWhiteSpaceFields() const { return nws; };
 
   LineField* getFieldFromName(std::string field_name) {
     if(name_to_field.count(field_name) > 0){
@@ -127,6 +133,9 @@ public:
     case FieldType::STR:
       nstr++;
       break;
+    case FieldType::WS:
+      nws++;
+      break;
     default:
       // TODO throw error
       break;
@@ -154,6 +163,9 @@ public:
         lsf = dynamic_cast<LineStrField*>(lf);
         printf("{STR:%s,%d,%c,%d}", name.data(), lsf->opt->stop_type, lsf->opt->delim, lsf->opt->nchar);
         break;
+      case FieldType::WS:
+        printf(" ");
+        break;
       default:
         // TODO throw error
         break;
@@ -174,7 +186,11 @@ public:
     while(idx < fmt_str.size()){
       char c = fmt_str[idx];
       if(c != '{'){
-        lf->addField(new LineChrField("", c, false));
+        if(c == ' '){
+          lf->addField(new WhitespaceField());
+        } else {
+          lf->addField(new LineChrField("", c, false));
+        }
         idx++;
       } else {
         // Only available tags at the moment are INT DBL STR CHR, can differentiate just by first char
@@ -223,8 +239,12 @@ public:
             }
           }
           else if('}' == fmt_str[name_end] && c == 'S'){
-            stsp = DELIM;
-            str_stp_chr = fmt_str[name_end+1]; // Also works if fmt_str[name_end+1] == 0 
+            if(fmt_str[name_end+1] == ' '){
+              stsp = ANY_WS;
+            } else {
+              stsp = DELIM;
+              str_stp_chr = fmt_str[name_end+1]; // Also works if fmt_str[name_end+1] == 0 
+            }
             idx = name_end+1;
           }
           else{

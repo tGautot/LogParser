@@ -24,7 +24,7 @@ extern "C" {
 
 inline void setup() {
   logger_setup();
-  logger_set_minlvl(0);
+  logger_set_minlvl(5);
 }
 
 inline void teardown() {
@@ -32,20 +32,21 @@ inline void teardown() {
 }
 
 // The default log format used across most integration tests (for data/sample.log):
-//   {INT:Date} {INT:Time} {STR:Level} {CHR:, ,1}:{CHR:,.,1}{STR:Source}:{CHR:, ,1}{STR:Mesg}
+//   {INT:Date} {INT:Time} {STR:Level} :{CHR:,.,1}{STR:Source}: {STR:Mesg}
+//   2 INT, 0 DBL, 3 CHR (':', '.', ':'), 3 STR, 4 WS
 inline std::unique_ptr<LineFormat> getDefaultLineFormat() {
   std::unique_ptr<LineFormat> lf = std::make_unique<LineFormat>();
   lf->addField(new LineIntField("Date"));
-  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new WhitespaceField());
   lf->addField(new LineIntField("Time"));
-  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new WhitespaceField());
   lf->addField(new LineStrField("Level", StrFieldStopType::DELIM, ' ', 0));
-  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new WhitespaceField());
   lf->addField(new LineChrField("", ':', false));
   lf->addField(new LineChrField("", '.', true));
   lf->addField(new LineStrField("Source", StrFieldStopType::DELIM, ':', 0));
   lf->addField(new LineChrField("", ':', false));
-  lf->addField(new LineChrField("", ' ', true));
+  lf->addField(new WhitespaceField());
   lf->addField(new LineStrField("Mesg", StrFieldStopType::DELIM, 0, 0));
   return lf;
 }
