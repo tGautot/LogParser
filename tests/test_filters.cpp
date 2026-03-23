@@ -182,6 +182,40 @@ TEST_CASE("FieldFilter - string comparisons") {
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
+  SECTION("CASE_INS_CONTAINS") {
+    std::string v = "ELL"; // "hello" contains "ell" case-insensitively
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CASE_INS_CONTAINS, v);
+    REQUIRE(hit.passes(&pl));
+
+    std::string v2 = "HeLLo"; // mixed case full match
+    FieldFilter mixed(parser->format.get(), "Name", FilterComparison::CASE_INS_CONTAINS, v2);
+    REQUIRE(mixed.passes(&pl));
+
+    std::string v3 = "WORLD";
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CASE_INS_CONTAINS, v3);
+    REQUIRE_FALSE(miss.passes(&pl));
+  }
+
+  SECTION("CASE_INS_BEGINS") {
+    std::string v = "HEL"; // "hello" begins with "hel" case-insensitively
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CASE_INS_BEGINS, v);
+    REQUIRE(hit.passes(&pl));
+
+    std::string v2 = "ELLO"; // not a prefix
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CASE_INS_BEGINS, v2);
+    REQUIRE_FALSE(miss.passes(&pl));
+  }
+
+  SECTION("CASE_INS_ENDS") {
+    std::string v = "LLO"; // "hello" ends with "llo" case-insensitively
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CASE_INS_ENDS, v);
+    REQUIRE(hit.passes(&pl));
+
+    std::string v2 = "HEL"; // not a suffix
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CASE_INS_ENDS, v2);
+    REQUIRE_FALSE(miss.passes(&pl));
+  }
+
 }
 
 // ──────────────────────────────────────────────

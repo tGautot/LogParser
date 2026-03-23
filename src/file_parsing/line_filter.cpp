@@ -2,9 +2,11 @@
 #include "line_format.hpp"
 #include "parsing_data.hpp"
 #include "processed_line.hpp"
+#include "string_utils.hpp"
 
 #include <memory>
 #include <stdexcept>
+
 
 
 
@@ -207,6 +209,12 @@ bool FieldFilter::str_passes(const ParsedLine* pl){
       int sdelta = field_val.length() - val_str.length();
       return (sdelta < 0) ? false : (field_val.find(val_str, sdelta) == (size_t) sdelta);
     }
+  case FilterComparison::CASE_INS_CONTAINS:
+    return find_case_insensitive(field_val, val_str) != field_val.end();
+  case FilterComparison::CASE_INS_BEGINS:
+    return find_case_insensitive(field_val, val_str) == field_val.begin();
+  case FilterComparison::CASE_INS_ENDS:
+    return static_cast<size_t>(std::distance(find_case_insensitive(field_val, val_str), field_val.end())) == val_str.size();
   default:
     throw std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type STR");
     break;
