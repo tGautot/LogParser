@@ -278,7 +278,7 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
         }
         block.lines.push_back(std::move(pl));
         if(last_read_local_id == 0) known_first_line = block.lines[0].line_num;
-        if(local_line_id >= local_to_global_id.size()){
+        if(last_read_local_id >= local_to_global_id.size()){
           local_to_global_id.push_back(pl.line_num);
         }
         last_read_local_id++;
@@ -302,11 +302,6 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
           block.first_line_local_id--;
           lines_left--;
         }
-      }
-
-      if(nread == 0){
-        known_last_line = block.lines.front().line_num;
-        block.contains_last_line = true;
       }
 
       LOG_EXIT();
