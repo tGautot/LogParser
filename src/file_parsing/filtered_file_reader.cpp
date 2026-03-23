@@ -125,8 +125,10 @@ size_t FilteredFileReader::getNextRawLine(const char** s){
     while(m_cursor + sz < m_file_data.size && m_file_data.data[m_cursor+sz] != '\n'){sz++;}
     m_cursor = std::min(m_cursor+sz+1, m_file_data.size); // +1 to go beyond \n
   } else if(m_curr_line+1 < m_file_data.line_index.size()){
-    sz = m_file_data.line_index[m_curr_line+1] - m_file_data.line_index[m_curr_line] - 1; // -1 because there is 1 \n we don't want between the start of two lines
-    m_cursor = std::min(m_cursor+sz+1, m_file_data.size);
+    sz = m_file_data.line_index[m_curr_line+1] - m_file_data.line_index[m_curr_line];
+    // Strip the trailing \n if present (last line of file may lack one)
+    if(sz > 0 && m_file_data.data[m_file_data.line_index[m_curr_line] + sz - 1] == '\n') sz--;
+    m_cursor = m_file_data.line_index[m_curr_line+1];
   } else {
     throw std::runtime_error("Missing lines in index (getNextRawLine)");
   }
@@ -152,7 +154,9 @@ size_t FilteredFileReader::getPrevRawLine(const char** s){
     return 0;
   }
   file_pos_t prev_line_begin = m_file_data.line_index[m_curr_line-1];
-  size_t sz = m_cursor - prev_line_begin - 1; // -1 since we don't count \n
+  size_t sz = m_cursor - prev_line_begin;
+  // Strip the trailing \n if present (last line of file may lack one)
+  if(sz > 0 && m_file_data.data[prev_line_begin + sz - 1] == '\n') sz--;
   *s = m_file_data.data + prev_line_begin;
   m_cursor = prev_line_begin;
   m_curr_line--;
