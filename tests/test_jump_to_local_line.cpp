@@ -1,24 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "test_helpers.hpp"
 
-#define SAMPLE_LOG TEST_FOLDER "data/sample.log"
-
-static constexpr int TOTAL_LINES = 62; // sample.log: local IDs 0-61 (unfiltered)
-static constexpr int FILTERED_LINES = 14; // INFO filter + bad format lines
-
-static LogParserInterface* make_lpi(int bsize) {
-  std::string filename = SAMPLE_LOG;
-  return new LogParserInterface(filename, getDefaultLineFormat(), nullptr, bsize);
-}
-
-static LogParserInterface* make_info_filtered_lpi(int bsize) {
-  std::string filename = SAMPLE_LOG;
-  auto lf = getDefaultLineFormat();
-  std::string val = "INFO";
-  auto filter = std::make_shared<FieldFilter>(
-      lf.get(), "Level", FilterComparison::EQUAL, &val);
-  return new LogParserInterface(filename, std::move(lf), filter, bsize);
-}
 
 // Verify local_to_global_id is strictly monotonically increasing (no duplicates)
 static void check_mapping_monotonic(LogParserInterface* lpi) {

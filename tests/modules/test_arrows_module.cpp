@@ -3,13 +3,6 @@
 #include "log_parser_terminal.hpp"
 #include "terminal_modules.hpp"
 
-#define SAMPLE_LOG TEST_FOLDER "data/sample.log"
-
-static LogParserInterface* make_lpi() {
-  std::string filename = SAMPLE_LOG;
-  return new LogParserInterface(filename, getDefaultLineFormat(), nullptr);
-}
-
 TEST_CASE("ArrowsModule - input mappings") {
   setup();
   auto* lpi = make_lpi();

@@ -3,13 +3,6 @@
 #include "log_parser_terminal.hpp"
 #include "terminal_modules.hpp"
 
-#define SAMPLE_LOG TEST_FOLDER "data/sample.log"
-
-static LogParserInterface* make_lpi() {
-  std::string filename = SAMPLE_LOG;
-  return new LogParserInterface(filename, getDefaultLineFormat(), nullptr);
-}
-
 // Helper: create a terminal with the cursor module registered, display state populated
 static LogParserTerminal make_term(LogParserInterface* lpi, int nrows, int ncols,
                                    int cy, int cx, uint64_t line_offset) {

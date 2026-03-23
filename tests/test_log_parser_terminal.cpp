@@ -7,26 +7,6 @@
 #include <algorithm>
 #include <string>
 
-#define SAMPLE_LOG TEST_FOLDER "data/sample.log"
-
-// sample.log has 62 raw lines
-static constexpr int TOTAL_LINES = 62;
-// With INFO filter + accept_bad_format: 10 INFO + 4 binary = 14
-static constexpr int FILTERED_LINES = 14;
-
-static LogParserInterface* make_unfiltered_lpi() {
-  std::string filename = SAMPLE_LOG;
-  return new LogParserInterface(filename, getDefaultLineFormat(), nullptr);
-}
-
-static LogParserInterface* make_info_filtered_lpi() {
-  std::string filename = SAMPLE_LOG;
-  auto lf = getDefaultLineFormat();
-  std::string val = "INFO";
-  auto filter = std::make_shared<FieldFilter>(
-      lf.get(), "Level", FilterComparison::EQUAL, &val);
-  return new LogParserInterface(filename, std::move(lf), filter);
-}
 
 // ============================================================
 // updateDisplayState — displayed_pls correctness
@@ -34,7 +14,7 @@ static LogParserInterface* make_info_filtered_lpi() {
 
 TEST_CASE("updateDisplayState - offset 0 no filter") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;
@@ -52,7 +32,7 @@ TEST_CASE("updateDisplayState - offset 0 no filter") {
 
 TEST_CASE("updateDisplayState - non-zero offset no filter") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.ncols = 80;
 
@@ -159,7 +139,7 @@ TEST_CASE("updateDisplayState - INFO filter non-zero offset") {
 
 TEST_CASE("updateDisplayState - offset past end of file no filter") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 10;
   term.term_state.ncols = 80;
@@ -193,7 +173,7 @@ TEST_CASE("updateDisplayState - offset past end of filtered file") {
 
 TEST_CASE("updateDisplayState - partial page near end of file") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 15; // 14 displayed rows
   term.term_state.ncols = 80;
@@ -236,7 +216,7 @@ TEST_CASE("updateDisplayState - partial page near end of filtered file") {
 
 TEST_CASE("updateDisplayState - nrows=2 shows exactly one line") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 2; // 1 status line + 1 content line
   term.term_state.ncols = 80;
@@ -252,7 +232,7 @@ TEST_CASE("updateDisplayState - nrows=2 shows exactly one line") {
 
 TEST_CASE("updateDisplayState - nrows=1 shows no content lines") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 1; // only status line
   term.term_state.ncols = 80;
@@ -270,7 +250,7 @@ TEST_CASE("updateDisplayState - nrows=1 shows no content lines") {
 
 TEST_CASE("updateDisplayState - info_col_size matches line numbers") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.ncols = 80;
 
@@ -326,7 +306,7 @@ TEST_CASE("updateDisplayState - info_col_size with local line numbers") {
   std::string orig = cfg.get(CFG_COMMON_PROFILE, CFG_LINE_NUM_MODE);
   cfg.set(CFG_COMMON_PROFILE, CFG_LINE_NUM_MODE, "local");
 
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;
@@ -348,7 +328,7 @@ TEST_CASE("updateDisplayState - info_col_size with local line numbers") {
 
 TEST_CASE("drawRows - frame contains text of displayed lines") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 10;
   term.term_state.ncols = 120;
@@ -370,7 +350,7 @@ TEST_CASE("drawRows - frame contains text of displayed lines") {
 
 TEST_CASE("drawRows - offset changes visible line text") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 5;
   term.term_state.ncols = 120;
@@ -427,7 +407,7 @@ TEST_CASE("drawRows - INFO filter: only filtered lines appear") {
 
 TEST_CASE("drawRows - line numbers appear with tilde separator") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 6;
   term.term_state.ncols = 120;
@@ -453,7 +433,7 @@ TEST_CASE("drawRows - local line numbers are sequential") {
   std::string orig = cfg.get(CFG_COMMON_PROFILE, CFG_LINE_NUM_MODE);
   cfg.set(CFG_COMMON_PROFILE, CFG_LINE_NUM_MODE, "local");
 
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 6;
   term.term_state.ncols = 120;
@@ -476,7 +456,7 @@ TEST_CASE("drawRows - local line numbers are sequential") {
 
 TEST_CASE("drawRows - empty rows past end of file") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 10;
   term.term_state.ncols = 80;
@@ -497,7 +477,7 @@ TEST_CASE("drawRows - empty rows past end of file") {
 
 TEST_CASE("drawRows - lines truncated at narrow ncols") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 3;
   term.term_state.ncols = 30; // very narrow
@@ -529,7 +509,7 @@ TEST_CASE("drawRows - hide_bad_fmt hides malformed lines") {
   std::string orig = cfg.get(CFG_COMMON_PROFILE, CFG_HIDE_BAD_FMT);
   cfg.set(CFG_COMMON_PROFILE, CFG_HIDE_BAD_FMT, "true");
 
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   // Binary lines are at global positions 25-28 (0-indexed)
   term.term_state.nrows = 10;
@@ -564,7 +544,7 @@ TEST_CASE("drawRows - bad format lines visible when not hidden") {
   std::string orig = cfg.get(CFG_COMMON_PROFILE, CFG_HIDE_BAD_FMT);
   cfg.set(CFG_COMMON_PROFILE, CFG_HIDE_BAD_FMT, "false");
 
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 10;
   term.term_state.ncols = 120;
@@ -584,7 +564,7 @@ TEST_CASE("drawRows - bad format lines visible when not hidden") {
 
 TEST_CASE("drawRows - status line reflects input mode") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 5;
   term.term_state.ncols = 120;
@@ -637,7 +617,7 @@ TEST_CASE("drawRows - full page vs partial page line count") {
 
 TEST_CASE("drawRows - consistent between repeated calls") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 10;
   term.term_state.ncols = 100;
@@ -660,7 +640,7 @@ TEST_CASE("drawRows - consistent between repeated calls") {
 
 TEST_CASE("drawRows - long raw input not truncated") {
   setup();
-  auto* lpi = make_unfiltered_lpi();
+  auto* lpi = make_lpi();
   LogParserTerminal term(lpi);
   term.term_state.nrows = 5;
   term.term_state.ncols = 200;

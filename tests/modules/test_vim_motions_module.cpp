@@ -3,20 +3,6 @@
 #include "log_parser_terminal.hpp"
 #include "terminal_modules.hpp"
 
-#define SAMPLE_LOG TEST_FOLDER "data/sample.log"
-
-static constexpr int TOTAL_LINES = 62; // sample.log has 62 raw lines (local IDs 0-61)
-
-static LogParserInterface* make_lpi() {
-  std::string filename = SAMPLE_LOG;
-  return new LogParserInterface(filename, getDefaultLineFormat(), nullptr);
-}
-
-static LogParserInterface* make_lpi_small_block(int bsize) {
-  std::string filename = SAMPLE_LOG;
-  return new LogParserInterface(filename, getDefaultLineFormat(), nullptr, bsize);
-}
-
 TEST_CASE("VimMotionsModule - move input mappings") {
   setup();
   auto* lpi = make_lpi();
@@ -59,7 +45,7 @@ TEST_CASE("VimMotionsModule - move input mappings") {
 TEST_CASE("VimMotionsModule - G jumps to end of file") {
   setup();
   // block_size=15 forces multiple block traversals to reach line 61
-  auto* lpi = make_lpi_small_block(15);
+  auto* lpi = make_lpi(15);
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;
@@ -93,7 +79,7 @@ TEST_CASE("VimMotionsModule - G jumps to end of file") {
 
 TEST_CASE("VimMotionsModule - G when file fits on screen") {
   setup();
-  auto* lpi = make_lpi_small_block(15);
+  auto* lpi = make_lpi(15);
   LogParserTerminal term(lpi);
   // nrows large enough that all 62 lines fit (62 content rows + 1 status = 63)
   term.term_state.nrows = 70;
@@ -122,7 +108,7 @@ TEST_CASE("VimMotionsModule - G when file fits on screen") {
 
 TEST_CASE("VimMotionsModule - gg jumps to beginning of file") {
   setup();
-  auto* lpi = make_lpi_small_block(15);
+  auto* lpi = make_lpi(15);
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;
@@ -154,7 +140,7 @@ TEST_CASE("VimMotionsModule - gg jumps to beginning of file") {
 
 TEST_CASE("VimMotionsModule - gg from middle of file") {
   setup();
-  auto* lpi = make_lpi_small_block(15);
+  auto* lpi = make_lpi(15);
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;
@@ -176,7 +162,7 @@ TEST_CASE("VimMotionsModule - gg from middle of file") {
 
 TEST_CASE("VimMotionsModule - gg from last line") {
   setup();
-  auto* lpi = make_lpi_small_block(15);
+  auto* lpi = make_lpi(15);
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;
@@ -208,7 +194,7 @@ TEST_CASE("VimMotionsModule - gg from last line") {
 
 TEST_CASE("VimMotionsModule - gg from first line is a no-op") {
   setup();
-  auto* lpi = make_lpi_small_block(15);
+  auto* lpi = make_lpi(15);
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;
@@ -230,7 +216,7 @@ TEST_CASE("VimMotionsModule - gg from first line is a no-op") {
 
 TEST_CASE("VimMotionsModule - G then gg then G then gg round-trip") {
   setup();
-  auto* lpi = make_lpi_small_block(15);
+  auto* lpi = make_lpi(15);
   LogParserTerminal term(lpi);
   term.term_state.nrows = 25;
   term.term_state.ncols = 80;

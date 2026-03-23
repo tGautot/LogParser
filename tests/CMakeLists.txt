@@ -18,6 +18,7 @@ add_executable(run_tests
   test_filters.cpp
   test_log_parser_terminal.cpp
   test_jump_to_local_line.cpp
+  test_find_next_occurence.cpp
   modules/test_cursor_move_module.cpp
   modules/test_wasd_module.cpp
   modules/test_arrows_module.cpp

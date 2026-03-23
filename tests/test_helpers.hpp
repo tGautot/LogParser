@@ -21,6 +21,12 @@ extern "C" {
 #define STRING_VIEW_PRINT(sv) static_cast<int>(sv.length()), sv.data()
 
 #define TEST_FOLDER "../../tests/"
+#define SAMPLE_LOG TEST_FOLDER "data/sample.log"
+
+// sample.log has 62 raw lines (local IDs 0-61 unfiltered)
+static constexpr int TOTAL_LINES = 62;
+// With INFO filter + accept_bad_format: 10 INFO + 4 binary = 14
+static constexpr int FILTERED_LINES = 14;
 
 inline void setup() {
   logger_setup();
@@ -85,6 +91,20 @@ static const std::string_view info_and_bf_lines[14] = {
 };
 
 // Maps the nth INFO line (local id) to its global line number in sample.log
+inline LogParserInterface* make_lpi(int bsize = 1000) {
+  std::string filename = SAMPLE_LOG;
+  return new LogParserInterface(filename, getDefaultLineFormat(), nullptr, bsize);
+}
+
+inline LogParserInterface* make_info_filtered_lpi(int bsize = 1000) {
+  std::string filename = SAMPLE_LOG;
+  auto lf = getDefaultLineFormat();
+  std::string val = "INFO";
+  auto filter = std::make_shared<FieldFilter>(
+      lf.get(), "Level", FilterComparison::EQUAL, &val);
+  return new LogParserInterface(filename, std::move(lf), filter, bsize);
+}
+
 inline int count_to_info_line(int id) {
   switch (id) {
     case 0: return 4;
