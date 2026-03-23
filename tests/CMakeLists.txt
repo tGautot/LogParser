@@ -16,7 +16,13 @@ add_executable(run_tests
   test_log_parser_interface.cpp
   test_cyclic_deque.cpp
   test_filters.cpp
-  test_log_parser_terminal.cpp)
+  test_log_parser_terminal.cpp
+  modules/test_cursor_move_module.cpp
+  modules/test_wasd_module.cpp
+  modules/test_arrows_module.cpp
+  modules/test_vim_motions_module.cpp)
+
+target_include_directories(run_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(run_tests
   PRIVATE
