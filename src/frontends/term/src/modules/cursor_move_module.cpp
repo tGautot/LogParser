@@ -33,14 +33,14 @@ void CursorMoveModule::registerUserActionCallback(LogParserTerminal& term){
       if(term_state.cx > term_state.info_col_size){
         term_state.cx--;
       } else {
-        // TODO scroll text left
+        if(term_state.vert_line_offset>0) term_state.vert_line_offset--;
       }
     }
     else if(act == ACTION_MOVE_RIGHT){
       if(term_state.cx < term_state.ncols - 1){
         term_state.cx++;
       } else {
-        // TODO scroll text right
+        term_state.vert_line_offset++;
       }
     }
 

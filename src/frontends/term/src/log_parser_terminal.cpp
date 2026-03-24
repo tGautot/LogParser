@@ -198,7 +198,7 @@ void LogParserTerminal::drawRows(){
   frame_str += ansi("fg_" + cfg.get(m_profile, CFG_TEXT_COLOR), false);
   for(int i = 0; i < term_state.nrows-term_state.num_status_line; i++){
     const ProcessedLine* pl = term_state.displayed_pls[i];
-    if(pl != nullptr ){
+    if(pl != nullptr){
       fetched_line = pl->raw_line;
       LOG_FCT(9, "Adding to display line(%d): '%s'\n", pl->well_formated, std::string(fetched_line).data());
       std::string line_num_str = local_nums ? std::to_string(term_state.line_offset+i) : std::to_string(pl->line_num);
@@ -217,37 +217,49 @@ void LogParserTerminal::drawRows(){
         frame_str += ansi("bg_" + cfg.get(m_profile, CFG_BG_COLOR));
       }
 
+      if(fetched_line.size() <= term_state.vert_line_offset){
+        frame_str += std::string(term_state.ncols - term_state.info_col_size, ' ') + "\r\n";
+        continue;
+      }
+
       std::string formatted_line = std::string(fetched_line);
       formatted_line.erase(std::remove(formatted_line.begin(), formatted_line.end(), '\r'), formatted_line.end());
       size_t match_pos = 0;
-      size_t last_visible_char = term_state.ncols - term_state.info_col_size;
+      size_t first_visible_char = term_state.vert_line_offset;
+      size_t last_visible_char = first_visible_char + term_state.ncols - term_state.info_col_size;
       size_t added_ansi_chars = 0;
       // Setup ansi seq in formatted line to highlight the word
       if(term_state.highlight_word != "") while((match_pos = formatted_line.find(term_state.highlight_word, match_pos)) != std::string::npos){
         static std::string end_invert_tag = "\e[27m"; 
         static std::string start_invert_tag = "\e[7m"; 
         LOG_FCT(5, "Found one match in line %lu highlighting it...\n", pl->line_num);
+        if(match_pos + term_state.highlight_word.size() < first_visible_char){
+          LOG_FCT(5, "Match is before the screen, looking ofr next\n");
+          match_pos += term_state.highlight_word.size();
+          continue;
+        }     
         if(match_pos > last_visible_char+added_ansi_chars){
-          LOG_FCT(5, "Match is out of the screen, stopping there...\n");
+          LOG_FCT(5, "Match is beyond the screen, stopping there...\n");
           break;
         }
         formatted_line.insert(formatted_line.begin() + 
                   std::min(match_pos + term_state.highlight_word.length(), last_visible_char+added_ansi_chars), 
                   end_invert_tag.begin(), end_invert_tag.end());
-        formatted_line.insert(formatted_line.begin() + match_pos, start_invert_tag.begin(), start_invert_tag.end());
+        formatted_line.insert(formatted_line.begin() + 
+                  std::max(match_pos, first_visible_char) , start_invert_tag.begin(), start_invert_tag.end());
         
         added_ansi_chars += start_invert_tag.length() + end_invert_tag.length();
         match_pos += term_state.highlight_word.length() + start_invert_tag.length() + end_invert_tag.length();
-      }
+      } 
 
-      // TODO "added_ansi_chars" might count ansi chars added that shouldn't be visible, making the following math invalid
-      if(fetched_line.size() + term_state.info_col_size > term_state.ncols){
-        formatted_line = formatted_line.substr(0, last_visible_char+added_ansi_chars);
-      }
-
+      formatted_line = formatted_line.substr(term_state.vert_line_offset, term_state.ncols - term_state.info_col_size + added_ansi_chars);
+      
       frame_str += formatted_line;
-      if(fetched_line.size() + term_state.info_col_size < term_state.ncols){
-        frame_str += std::string(term_state.ncols-fetched_line.size()-term_state.info_col_size, ' ');
+      if(fetched_line.size() + term_state.info_col_size - term_state.vert_line_offset < term_state.ncols){
+        frame_str += std::string(
+            std::min(static_cast<int>(term_state.ncols - term_state.info_col_size - fetched_line.size() + term_state.vert_line_offset),
+                     static_cast<int>(term_state.ncols - term_state.info_col_size))
+            , ' ');
       }
     } else {
       frame_str += std::string(term_state.ncols, ' ');
@@ -262,7 +274,7 @@ void LogParserTerminal::drawRows(){
   frame_str += ansi("fg_" + cfg.get(m_profile, CFG_SL_TXT_COLOR), false);
   if(term_state.input_mode == ACTION){
     // Status Line
-    snprintf(buf, 80, "Status: l%d:c%d (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.nrows, term_state.ncols, term_state.frame_num);
+    snprintf(buf, 80, "Status: cy%d:cx%d:lo%lu:vlo%lu (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.line_offset, term_state.vert_line_offset, term_state.nrows, term_state.ncols, term_state.frame_num);
     char buf2[81];
     snprintf(buf2, 80, "BLK flli=%lu,frm=%lu,to=%lu,cll=%s  ", lpi->block.first_line_local_id, lpi->block.lines.front().line_num, lpi->block.lines.back().line_num, lpi->block.contains_last_line ? "true" : "false");
     frame_str += buf;
