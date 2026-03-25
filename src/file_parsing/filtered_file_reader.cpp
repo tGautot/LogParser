@@ -101,13 +101,17 @@ void FilteredFileReader::setFilter(std::shared_ptr<LineFilter> filter){
   m_config->filter = filter;
 }
 
-void FilteredFileReader::jumpToLine(line_t line_num){
+void FilteredFileReader::jumpToGlobalLine(line_t line_num){
   if(line_num >= m_file_data.line_index.size()){
-    LOG(1, "Invalid index in FilteredFileReader::jumpToLine=%llu\b", line_num);
-    throw std::runtime_error("Cannot use jumpToLine with an index that hasn't yet parsed");
+    LOG(1, "Invalid index in FilteredFileReader::jumpToGlobalLine=%llu\b", line_num);
+    throw std::runtime_error("Cannot use jumpToGlobalLine with an index that hasn't yet parsed");
   }
   m_curr_line = line_num;
   m_cursor = m_file_data.line_index[m_curr_line];
+}
+
+void FilteredFileReader::jumpToLocalLine(line_t line_num){
+  jumpToGlobalLine(m_filtered_file_data->valid_line_index[line_num]);
 }
 
 size_t FilteredFileReader::getNextRawLine(const char** s){
@@ -178,7 +182,7 @@ void FilteredFileReader::skipNextRawLines(line_t n){
 
 void FilteredFileReader::seekRawLine(line_t num){
   const char* s;
-  jumpToLine(std::min(num, m_file_data.line_index.size()-1));
+  jumpToGlobalLine(std::min(num, m_file_data.line_index.size()-1));
   while(num >= m_file_data.line_index.size()){
     getNextRawLine(&s);
   } 
@@ -230,6 +234,9 @@ bool FilteredFileReader::getNextValidLine(ProcessedLine& pl){
 
       pl.set_data(m_curr_line-1, s, line_size, m_config->parser.get(), m_cursor);
       m_filtered_file_data->line_passes.push_back((!pl.well_formated && m_config->accept_bad_format) || m_config->filter == nullptr || m_config->filter->passes(&pl));
+      if(m_filtered_file_data->line_passes.back())
+        m_filtered_file_data->valid_line_index.push_back(m_curr_line-1);
+
       LOG_FCT(9, "Explored a new line, curr now at %llu, indexed %llu lines\n", m_curr_line, m_file_data.line_index.size());
     
     } while(m_filtered_file_data->line_passes.back() == false);

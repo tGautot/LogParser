@@ -87,7 +87,7 @@ private:
   //std::vector<std::string_view> getLines(line_t from, line_t count);
   //std::vector<std::string_view> getFromLastLine(size_t count);
 
-  std::pair<line_t, size_t> findNextOccurence(std::string match, line_t from, bool forward = true);
+  std::pair<line_t, size_t> findNextOccurence(std::string match, line_t from_local, bool forward = true);
   
 };
 

@@ -45,7 +45,7 @@ typedef struct {
   */
 typedef struct {
   std::vector<bool> line_passes; // std::vector<bool>, caution is advised......................
-  std::vector<file_pos_t> valid_line_index;
+  std::vector<line_t> valid_line_index; // Translates local line id to global
 } FilteredFileData;
 
 
@@ -66,7 +66,8 @@ public:
   file_pos_t m_cursor;
   line_t m_curr_line;
   
-  void jumpToLine(line_t line_num);
+  void jumpToGlobalLine(line_t line_num);
+  void jumpToLocalLine(line_t line_num);
   size_t getNextRawLine(const char** s);
   size_t getPrevRawLine(const char** s);
   void skipNextRawLines(line_t n);

@@ -59,7 +59,7 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
   bool found_anchor =  false;
   ProcessedLine pl;
   uint32_t nread, line_local_id = 0, lines_left = block_size/2;
-  ffr->jumpToLine(0);
+  ffr->jumpToGlobalLine(0);
   block.first_line_local_id = 0;
   while( lines_left > 0  && 
       (nread = ffr->getNextValidLine(pl)) != 0){
@@ -151,7 +151,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
     bool got_req_line = false;
     int block_offset = block_size/10;
     int i = block_offset;
-    ffr->jumpToLine(block.lines.front().line_num);
+    ffr->jumpToGlobalLine(block.lines.front().line_num);
     while( (nread = ffr->getPreviousValidLine(block.lines.back())) != 0){
       block.lines.push_front();
       block.first_line_local_id--;
@@ -180,7 +180,7 @@ line_info_t LogParserInterface::getLine(line_t local_line_id){
   int i = block_offset;
   line_t block_last_line_local_id = block.first_line_local_id + block.lines.size() - 1;
   bool got_req_line =false;
-  ffr->jumpToLine(block.lines.back().line_num+1);
+  ffr->jumpToGlobalLine(block.lines.back().line_num+1);
   while( (nread = ffr->getNextValidLine(block.lines.front())) != 0){
     block.lines.push_back();
     block.first_line_local_id++;
@@ -267,7 +267,7 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
       bool found_line =  false;
       ProcessedLine pl;
       uint32_t nread, last_read_local_id = start_local_line, lines_left = block_size/2;
-      ffr->jumpToLine(lb);
+      ffr->jumpToGlobalLine(lb);
       block.first_line_local_id = start_local_line;
       LOG_FCT(5, "Requested line is in uncharted teritory, going on an adventure starting at (g:%lu,l:%lu)\n", lb, start_local_line);
       
@@ -292,7 +292,7 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
       }
 
       if(!block.lines.full()){ // Wasn't too far from lower bound, and found it without filling whole block
-        ffr->jumpToLine(lb);
+        ffr->jumpToGlobalLine(lb);
         lines_left = block_size-block.lines.size();
         last_read_local_id = start_local_line-1;
         while( lines_left > 0  && 
@@ -315,7 +315,7 @@ void LogParserInterface::jumpToLocalLine(line_t local_line_id){
   size_t line_storage_id = 0;
   bool no_more_above = false, no_more_below = false, finished = false;
   block.lines.clear();
-  ffr->jumpToLine(around_global_line);
+  ffr->jumpToGlobalLine(around_global_line);
   block.first_line_local_id = around_local_line;
 read_backwards:
   LOG_FCT(5, "Reading backwards (%ld lines max)\n", segment_lines_left);
@@ -330,7 +330,7 @@ read_backwards:
   segment_lines_left = block_size - line_storage_id;
   finished = (line_storage_id == block_size) || no_more_below;
   if(finished) goto done;
-  ffr->jumpToLine(around_global_line);
+  ffr->jumpToGlobalLine(around_global_line);
 read_forward:
   LOG_FCT(5, "Reading forward (%ld lines max)\n", segment_lines_left);
   while( segment_lines_left > 0  && 
@@ -361,16 +361,19 @@ done:
 
 }
 
-std::pair<line_t, size_t> LogParserInterface::findNextOccurence(std::string match, line_t from, bool forward){
-  ffr->jumpToLine(from);
+std::pair<line_t, size_t> LogParserInterface::findNextOccurence(std::string match, line_t from_local, bool forward){
+  LOG(3, "Starting at line num %lu\n", from_local);
+  ffr->jumpToLocalLine(from_local);
   ProcessedLine pl;
+  line_t offset = 0;
   while((forward) ? ffr->getNextValidLine(pl) != 0 :
                     ffr->getPreviousValidLine(pl) != 0){
-  
+    LOG(3, "Checking str\"%s\" for match agains \"%s\"", SV_TO_STR(pl.raw_line).data(), match.data());
+    offset++;
     size_t sttpos = pl.raw_line.find(match);
     if(sttpos != std::string::npos){
       // Found match
-      return {pl.line_num, sttpos};
+      return {from_local + (forward ? offset-1 : -offset), sttpos};
     }
   }
   return {LINE_T_MAX, SIZE_MAX};

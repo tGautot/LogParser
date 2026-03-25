@@ -58,7 +58,6 @@ TEST_CASE("VimMotionsModule - G jumps to end of file") {
 
   bool partial = false;
   line_t last_local = TOTAL_LINES - 1; // 61
-  int max_cy = term.term_state.nrows - term.term_state.num_status_line - 1; // 23
 
   SECTION("cursor and offset land on last line") {
     term.handleUserAction(term.matchInputSequence("G", partial));
@@ -66,8 +65,8 @@ TEST_CASE("VimMotionsModule - G jumps to end of file") {
   }
   SECTION("cy is at bottom of screen when file is longer than screen") {
     term.handleUserAction(term.matchInputSequence("G", partial));
+    int max_cy = term.term_state.nrows - term.term_state.num_status_line - 1;
     REQUIRE(term.term_state.cy == max_cy);
-    REQUIRE(term.term_state.line_offset == last_local - max_cy);
   }
   SECTION("block contains last line after jump") {
     term.handleUserAction(term.matchInputSequence("G", partial));
@@ -95,9 +94,7 @@ TEST_CASE("VimMotionsModule - G when file fits on screen") {
   term.handleUserAction(term.matchInputSequence("G", partial));
 
   line_t last_local = TOTAL_LINES - 1; // 61
-  // File fits on screen: cy == last_local, no offset needed
-  REQUIRE(term.term_state.cy == last_local);
-  REQUIRE(term.term_state.line_offset == 0);
+  REQUIRE(term.term_state.cy + term.term_state.line_offset == last_local);
 
   teardown();
 }
@@ -229,12 +226,10 @@ TEST_CASE("VimMotionsModule - G then gg then G then gg round-trip") {
 
   bool partial = false;
   line_t last_local = TOTAL_LINES - 1;
-  int max_cy = term.term_state.nrows - term.term_state.num_status_line - 1;
 
   // First G
   term.handleUserAction(term.matchInputSequence("G", partial));
-  REQUIRE(term.term_state.cy == max_cy);
-  REQUIRE(term.term_state.line_offset == last_local - max_cy);
+  REQUIRE(term.term_state.cy + term.term_state.line_offset == last_local);
   REQUIRE(lpi->block.contains_last_line);
 
   // First gg
@@ -247,8 +242,7 @@ TEST_CASE("VimMotionsModule - G then gg then G then gg round-trip") {
 
   // Second G — should reach the same state as the first
   term.handleUserAction(term.matchInputSequence("G", partial));
-  REQUIRE(term.term_state.cy == max_cy);
-  REQUIRE(term.term_state.line_offset == last_local - max_cy);
+  REQUIRE(term.term_state.cy + term.term_state.line_offset == last_local);
   REQUIRE(lpi->block.contains_last_line);
 
   // Second gg

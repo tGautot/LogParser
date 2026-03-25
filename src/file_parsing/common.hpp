@@ -15,4 +15,6 @@
 typedef uint64_t line_t;
 #define LINE_T_MAX UINT64_MAX
 
+#define SV_TO_STR(sv) std::string(sv.data(), sv.length())
+
 #endif

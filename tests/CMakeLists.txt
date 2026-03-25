@@ -22,7 +22,8 @@ add_executable(run_tests
   modules/test_cursor_move_module.cpp
   modules/test_wasd_module.cpp
   modules/test_arrows_module.cpp
-  modules/test_vim_motions_module.cpp)
+  modules/test_vim_motions_module.cpp
+  modules/test_text_search_module.cpp)
 
 target_include_directories(run_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 

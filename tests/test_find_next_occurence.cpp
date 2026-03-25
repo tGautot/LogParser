@@ -122,7 +122,7 @@ TEST_CASE("findNextOccurence - filtered: finds match in INFO line") {
 
   // "Ioctl" appears in INFO lines at global 20, 36, 57
   auto [line, pos] = lpi->findNextOccurence("Ioctl", 0);
-  REQUIRE(line == 20);
+  REQUIRE(line == 3);
   REQUIRE(pos != SIZE_MAX);
 
   teardown();
@@ -132,9 +132,20 @@ TEST_CASE("findNextOccurence - filtered: skips to next INFO match") {
   setup();
   auto* lpi = make_info_filtered_lpi();
 
-  // From global line 21 (past first Ioctl), next should be global 36
-  auto [line, pos] = lpi->findNextOccurence("Ioctl", 21);
-  REQUIRE(line == 36);
+  // From local line 4 (past first Ioctl), next should be global 9
+  auto [line, pos] = lpi->findNextOccurence("Ioctl", 4);
+  REQUIRE(line == 9);
+
+  teardown();
+}
+
+TEST_CASE("findNextOccurence - filtered: can touch last info line") {
+  setup();
+  auto* lpi = make_info_filtered_lpi();
+
+  // From local line 4 (past first Ioctl), next should be global 9
+  auto [line, pos] = lpi->findNextOccurence("Ioctl", 8);
+  REQUIRE(line == 9);
 
   teardown();
 }
@@ -171,9 +182,14 @@ TEST_CASE("findNextOccurence - filtered: string in both INFO and TRACE only matc
   // "rsvp_flow_stateMachine" appears in both TRACE and INFO lines
   // First TRACE: global 7 ("reentering state RESVED")
   // First INFO: global 4 ("state RESVED, event T1OUT")
-  // Search should find global 4 (the INFO line), not 7
+  // Search should find local 0 (the INFO line)
   auto [line, pos] = lpi->findNextOccurence("rsvp_flow_stateMachine", 0);
-  REQUIRE(line == 4);
+  REQUIRE(line == 0);
+
+
+  auto [line2, pos2] = lpi->findNextOccurence("rsvp_flow_stateMachine", 1);
+  REQUIRE(line2 == 2);
+
 
   teardown();
 }
@@ -182,27 +198,27 @@ TEST_CASE("findNextOccurence - filtered: string in both INFO and TRACE only matc
 // Filtered — backward search
 // ============================================================
 
-TEST_CASE("findNextOccurence - filtered: backward finds last INFO match") {
+TEST_CASE("findNextOccurence - filtered: backward finds before last INFO match") {
   setup();
   auto* lpi = make_info_filtered_lpi();
 
   // "Ioctl" in INFO lines at global 20, 36, 57
   // Backward from global 61 should find 57
-  auto [line, pos] = lpi->findNextOccurence("Ioctl", 61, false);
-  REQUIRE(line == 57);
+  auto [line, pos] = lpi->findNextOccurence("Ioctl", 13, false);
+  REQUIRE(line == 9);
 
   teardown();
 }
 
-TEST_CASE("findNextOccurence - filtered: backward skips TRACE lines") {
+TEST_CASE("findNextOccurence - filtered: backward can touch first local line") {
   setup();
   auto* lpi = make_info_filtered_lpi();
 
   // "rsvp_flow_stateMachine" in TRACE at global 7, 17, 32, 44, 54
   //                          in INFO at global 4, 14, 29, 41, 51
   // Backward from 50 should find global 41 (INFO), not 44 (TRACE)
-  auto [line, pos] = lpi->findNextOccurence("rsvp_flow_stateMachine", 50, false);
-  REQUIRE(line == 41);
+  auto [line, pos] = lpi->findNextOccurence("rsvp_flow_stateMachine", 1, false);
+  REQUIRE(line == 0);
 
   teardown();
 }

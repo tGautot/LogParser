@@ -277,7 +277,7 @@ TEST_CASE("FilteredFileReader::goToPosition - repositions using a stored stream 
     ffr.getNextValidLine(info0);  // INFO line 0 at raw line 4
     ffr.getNextValidLine(pl);      // advance past it
 
-    ffr.jumpToLine(info0.line_num);
+    ffr.jumpToGlobalLine(info0.line_num);
     ffr.getNextValidLine(pl);
     REQUIRE(pl.line_num == (line_t)count_to_info_line(0));
   }
@@ -288,7 +288,7 @@ TEST_CASE("FilteredFileReader::goToPosition - repositions using a stored stream 
     ffr.getNextValidLine(info1);  // INFO line 1 (raw line 12)
 
     // Seek to start of INFO line 1; previous valid line should be INFO line 0.
-    ffr.jumpToLine(info1.line_num);
+    ffr.jumpToGlobalLine(info1.line_num);
     ffr.getPreviousValidLine(pl);
     REQUIRE(pl.line_num == (line_t)count_to_info_line(0));
   }
@@ -346,7 +346,7 @@ TEST_CASE("FilteredFileReader::skipNextRawLines - advances exactly N raw lines")
     ffr.getNextValidLine(info1);   // INFO line 1 at raw line 12
 
     // Seek to the start of INFO line 1, then step past it.
-    ffr.jumpToLine(info1.line_num);
+    ffr.jumpToGlobalLine(info1.line_num);
     ffr.skipNextRawLines(1);
     ffr.getNextValidLine(pl);
     REQUIRE(pl.line_num == (line_t)count_to_info_line(2)); // INFO line 2 at raw line 14

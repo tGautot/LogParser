@@ -22,14 +22,11 @@ static bool searching = false;
 static std::string match_str = "";
 
 static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward){
-  // TODO Handle case where cursor in "in the void" and this causes nullptr exception
-  const ProcessedLine* start_line = (state.displayed_pls.size() <= (size_t) state.cy) ? state.displayed_pls.back() : state.displayed_pls[state.cy];
   
-  line_t cursor_start_line = start_line->line_num + (forward ? 1 : 0);
-  LOG(3, "Commanding next search to start at line %lu\n", cursor_start_line);
-  std::pair<line_t, size_t> match_pos = lpi->findNextOccurence(match_str, cursor_start_line, forward);
-  line_t line_num = match_pos.first;
-  size_t char_pos = match_pos.second;
+  line_t cursor_start_line = state.line_offset + state.cy+(forward ? searching : 0);
+  LOG(3, "Commanding next search to start at global line %lu\n", cursor_start_line);
+  auto [ line_num, char_pos] = lpi->findNextOccurence(match_str, cursor_start_line, forward);
+  LOG(3, "Found match at local line %llu\n", line_num);
   if(line_num == LINE_T_MAX){
     // Dont update state
     // TODO Show user that we found no match
@@ -75,10 +72,11 @@ void TextSearchModule::registerCommandCallback(LogParserTerminal& term){
     size_t substr_pos = cmd.find(":?");
     LOG_FCT(3, "Full command is %s, found search query at pos %lu\n", cmd.data(), substr_pos);
     if(substr_pos == 0){
-      searching = true;
       match_str = cmd.substr(2);
       state.highlight_word = match_str;
       line_t l = search(state, lpi, true);
+      // Set searching=true after first search, to let the search know if it is a first call or not
+      searching = true;
       LOG_FCT(3, "Command is indeed for search, looking for string %s", match_str.data());
       LOG_FCT(3, "Found it at %lu\n", l);
     } else {

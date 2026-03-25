@@ -30,7 +30,7 @@ static constexpr int FILTERED_LINES = 14;
 
 inline void setup() {
   logger_setup();
-  logger_set_minlvl(0);
+  logger_set_minlvl(3);
 }
 
 inline void teardown() {
