@@ -29,9 +29,11 @@ static constexpr int TOTAL_LINES = 62;
 // With INFO filter + accept_bad_format: 10 INFO + 4 binary = 14
 static constexpr int FILTERED_LINES = 14;
 
+extern int g_log_level;
+
 inline void setup() {
   logger_setup();
-  logger_set_minlvl(3);
+  logger_set_minlvl(g_log_level);
 }
 
 inline void teardown() {

@@ -9,6 +9,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 add_executable(run_tests
+  test_main.cpp
   test_line_format.cpp
   test_line_parser.cpp
   test_line_filter.cpp
@@ -30,7 +31,7 @@ target_include_directories(run_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(run_tests
   PRIVATE
     logging
-    Catch2::Catch2WithMain
+    Catch2::Catch2
     line_parsing
     file_parsing
     logramtui)
