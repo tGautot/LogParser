@@ -31,20 +31,23 @@ inline void trim(std::string &s) {
 }
 
 #define CHECK_FOR_TAG(cmp_txt, code_op) \
-  v = s.find(cmp_txt, start_pos); \
+  v = s.find(" " cmp_txt " ", start_pos); \
   if(v < ans){ \
-    ans = v; op = code_op; \
+    ans = v+1; op = code_op; \
   } 
 
 #define CHECK_FOR_COMPARATOR_TAG(cmp_txt, code_op) \
-  tag_size = sizeof(cmp_txt)-1; \
-  v = s.find(cmp_txt, start_pos); \
-  if(v < tag_stt_pos){ \
+  v = s.find(" " cmp_txt " ", start_pos); \
+  if(v < tag_stt_pos){  \
+    tag_size = sizeof(cmp_txt)-1; \
     case_ins_check = false; \
-    tag_stt_pos = v; op = code_op; \
-    if(s.find(cmp_txt "_CI", start_pos) == v){ \
-      tag_size += 3; case_ins_check = true; \
-    } \
+    tag_stt_pos = v+1; op = code_op; \
+    LOG(7, "Found tag %s (size: %d) at pos %d\n", cmp_txt, tag_size, v); \
+  } else if( (v = s.find(" " cmp_txt "_CI ", start_pos)) < tag_stt_pos ) { \
+    tag_size = sizeof(cmp_txt)-1+3; \
+    case_ins_check = true; \
+    tag_stt_pos = v+1; op = code_op; \
+    LOG(7, "Found tag %s_CI (size: %d) at pos %d\n", cmp_txt, tag_size, v); \
   }
 
 std::pair<size_t, BitwiseOp> find_next_bitwise_op(std::string& s, size_t start_pos=0){
@@ -61,6 +64,7 @@ std::pair<size_t, BitwiseOp> find_next_bitwise_op(std::string& s, size_t start_p
 
 // Tag start pos, tag size, comparison, is_case_insensitive
 std::tuple<size_t, size_t, FilterComparison, bool> find_next_comparator(std::string& s, size_t start_pos=0){
+  LOG(3, "Looking for tag in \"%s\"\n", s.data());
   FilterComparison op = EQUAL;
   size_t tag_stt_pos = std::string::npos;
   size_t tag_size = std::string::npos;
@@ -73,7 +77,7 @@ std::tuple<size_t, size_t, FilterComparison, bool> find_next_comparator(std::str
   CHECK_FOR_COMPARATOR_TAG("ST", SMALLER);
   CHECK_FOR_COMPARATOR_TAG("SMALLER", SMALLER);
   CHECK_FOR_COMPARATOR_TAG("SMALLER_THAN", SMALLER);
-
+  
   CHECK_FOR_COMPARATOR_TAG("SE", SMALLER_EQ);
   CHECK_FOR_COMPARATOR_TAG("SMALLER_EQ", SMALLER_EQ);
   CHECK_FOR_COMPARATOR_TAG("SMALLER_EQUAL", SMALLER_EQ);
@@ -102,6 +106,8 @@ std::tuple<size_t, size_t, FilterComparison, bool> find_next_comparator(std::str
 
 std::shared_ptr<LineFilter> parse_filter_decl(std::string fdecl, LineFormat* lfmt){
 parse_start:
+  LOG(3, "Parsing %s\n", fdecl.data());
+  if(fdecl == "") return nullptr;
   trim(fdecl);
   if(fdecl[0] == '('){
     size_t expr_end = 0;
@@ -112,10 +118,12 @@ parse_start:
     } while(open_prt > 0 && ++expr_end < fdecl.size());
     if(expr_end == fdecl.size()) throw std::runtime_error("Found '(' but no matching ')'");
     if(expr_end+1 == fdecl.size()){
+      LOG(3, "Found global matching parenthesis, removing and restarting parse\n");
       fdecl = (fdecl.substr(1, fdecl.size()-2));
       goto parse_start;
     }
 
+    LOG(3, "Found parenthesis at pos %d, %d, parsing content: \"%s\"\n", 1, expr_end-1, fdecl.substr(1, expr_end-1).data());
     std::shared_ptr<LineFilter> left = parse_filter_decl(fdecl.substr(1, expr_end-1), lfmt);
 
     std::pair<size_t, BitwiseOp> op_stt = find_next_bitwise_op(fdecl, expr_end);
@@ -127,6 +135,7 @@ parse_start:
     return std::make_shared<CombinedFilter>(left, right, op_stt.second);
   } else {
     std::pair<size_t, BitwiseOp> op_stt = find_next_bitwise_op(fdecl);
+    LOG(3, "Found bitwise op at pos %lu\n", op_stt.first);
     if(op_stt.first != std::string::npos){
       std::shared_ptr<LineFilter> left = parse_filter_decl(fdecl.substr(0, op_stt.first), lfmt);
 
@@ -139,6 +148,7 @@ parse_start:
 
     // We are now supposed to only have a simple field filter (e.g.: "field_name COMPARATOR value")
     auto [tag_stt_pos, tag_size, comp, is_case_insensitive] = find_next_comparator(fdecl);
+    LOG(3, "Found comp %d (case ins: %d) at pos %d, tag is of size %d.\n", comp, is_case_insensitive, tag_stt_pos, tag_size);
     std::string field_name = fdecl.substr(0, tag_stt_pos); trim(field_name);
     std::string value_str = fdecl.substr(tag_stt_pos + tag_size); trim(value_str);
 
