@@ -4,6 +4,7 @@
 #include "processed_line.hpp"
 #include "string_utils.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 
@@ -42,8 +43,9 @@ bool CombinedFilter::_passes(const ParsedLine* pl) {
 }
 
 
-FieldFilter::FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, std::string& str_value){
+FieldFilter::FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, std::string& str_value, bool str_case_ins_check){
   comp = cmp;
+  case_insensitive_check = str_case_ins_check;
 
   targetField = lfmt->getFieldFromName(field_name);
   if(targetField == nullptr){
@@ -73,8 +75,11 @@ FieldFilter::FieldFilter(LineFormat* lfmt, std::string field_name, FilterCompari
   case FieldType::STR:
     pass_fn = &FieldFilter::str_passes;
     val_str = str_value;
+    if(case_insensitive_check){
+      std::transform(val_str.begin(), val_str.end(), val_str.begin(), ::tolower);
+    }
     break;
-  
+   
   default:
     throw std::runtime_error("Unexpected field type");
     break;
@@ -82,8 +87,9 @@ FieldFilter::FieldFilter(LineFormat* lfmt, std::string field_name, FilterCompari
 
 }
 
-FieldFilter::FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, void* base_val){
+FieldFilter::FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, void* base_val, bool str_case_ins_check){
   comp = cmp;
+  case_insensitive_check = str_case_ins_check;
 
   targetField = lfmt->getFieldFromName(field_name);
   if(targetField == nullptr){
@@ -113,6 +119,9 @@ FieldFilter::FieldFilter(LineFormat* lfmt, std::string field_name, FilterCompari
   case FieldType::STR:
     pass_fn = &FieldFilter::str_passes;
     val_str = std::string(*((char**) base_val));
+    if(case_insensitive_check){
+      std::transform(val_str.begin(), val_str.end(), val_str.begin(), ::tolower);
+    }
     break;
   
   default:
@@ -187,6 +196,12 @@ bool FieldFilter::chr_passes(const ParsedLine* pl){
 
 bool FieldFilter::str_passes(const ParsedLine* pl){
   std::string_view field_val(*(pl->getStrField(parsedFieldId)));
+  if(case_insensitive_check){
+    // Make a copy of the field value, lower it, and recreate field_val from it
+    std::string lowered = std::string(field_val.data(), field_val.size());
+    std::transform(lowered.begin(), lowered.end(), lowered.begin(), ::tolower);
+    field_val = lowered;
+  }
   //std::cout << "Checking STR filter with cmp " << comp << " and base val " << val_str << " vs field val " << field_val << std::endl;
   switch (comp)
   {
@@ -209,12 +224,6 @@ bool FieldFilter::str_passes(const ParsedLine* pl){
       int sdelta = field_val.length() - val_str.length();
       return (sdelta < 0) ? false : (field_val.find(val_str, sdelta) == (size_t) sdelta);
     }
-  case FilterComparison::CASE_INS_CONTAINS:
-    return find_case_insensitive(field_val, val_str) != field_val.end();
-  case FilterComparison::CASE_INS_BEGINS:
-    return find_case_insensitive(field_val, val_str) == field_val.begin();
-  case FilterComparison::CASE_INS_ENDS:
-    return static_cast<size_t>(std::distance(find_case_insensitive(field_val, val_str), field_val.end())) == val_str.size();
   default:
     throw std::logic_error("Filter on field " + targetField->name + " has unsupported operation for type STR");
     break;

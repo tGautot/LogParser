@@ -182,40 +182,114 @@ TEST_CASE("FieldFilter - string comparisons") {
     REQUIRE_FALSE(miss.passes(&pl));
   }
 
-  SECTION("CASE_INS_CONTAINS") {
-    std::string v = "ELL"; // "hello" contains "ell" case-insensitively
-    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CASE_INS_CONTAINS, v);
-    REQUIRE(hit.passes(&pl));
+}
+
+// ──────────────────────────────────────────────
+// FieldFilter – case-insensitive string comparisons
+// ──────────────────────────────────────────────
+
+TEST_CASE("FieldFilter - case-insensitive string comparisons") {
+  std::unique_ptr<LineFormat> lf  = makeSimpleFormat();
+  std::shared_ptr<Parser> parser  = Parser::fromLineFormat(std::move(lf));
+
+  // Three parsed lines with different source casings: lower, upper, mixed
+  ParsedLine pl_lower(parser->format.get());
+  std::string line_lower = "100 hello";
+  REQUIRE(parser->parseLine(line_lower, &pl_lower));
+
+  ParsedLine pl_upper(parser->format.get());
+  std::string line_upper = "100 HELLO";
+  REQUIRE(parser->parseLine(line_upper, &pl_upper));
+
+  ParsedLine pl_mixed(parser->format.get());
+  std::string line_mixed = "100 HeLLo";
+  REQUIRE(parser->parseLine(line_mixed, &pl_mixed));
+
+  ParsedLine* all_casings[] = { &pl_lower, &pl_upper, &pl_mixed };
+
+  SECTION("EQUAL") {
+    std::string v = "HeLLo";
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::EQUAL, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
+
+    std::string v2 = "WORLD";
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::EQUAL, v2, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
+  }
+
+  SECTION("SMALLER") {
+    std::string v = "WORLD"; // "hello" < "world" after lowering both
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::SMALLER, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
+
+    std::string v2 = "APPLE"; // "hello" < "apple" → false
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::SMALLER, v2, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
+  }
+
+  SECTION("SMALLER_EQ") {
+    std::string v = "HELLO"; // "hello" <= "hello"
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::SMALLER_EQ, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
+
+    std::string v2 = "APPLE"; // "hello" <= "apple" → false
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::SMALLER_EQ, v2, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
+  }
+
+  SECTION("GREATER") {
+    std::string v = "APPLE"; // "hello" > "apple" after lowering both
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::GREATER, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
+
+    std::string v2 = "WORLD"; // "hello" > "world" → false
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::GREATER, v2, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
+  }
+
+  SECTION("GREATER_EQ") {
+    std::string v = "HELLO"; // "hello" >= "hello"
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::GREATER_EQ, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
+
+    std::string v2 = "ZOO"; // "hello" >= "zoo" → false
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::GREATER_EQ, v2, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
+  }
+
+  SECTION("CONTAINS") {
+    std::string v = "ELL";
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CONTAINS, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
 
     std::string v2 = "HeLLo"; // mixed case full match
-    FieldFilter mixed(parser->format.get(), "Name", FilterComparison::CASE_INS_CONTAINS, v2);
-    REQUIRE(mixed.passes(&pl));
+    FieldFilter mixed(parser->format.get(), "Name", FilterComparison::CONTAINS, v2, true);
+    for (auto* pl : all_casings) REQUIRE(mixed.passes(pl));
 
     std::string v3 = "WORLD";
-    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CASE_INS_CONTAINS, v3);
-    REQUIRE_FALSE(miss.passes(&pl));
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CONTAINS, v3, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
   }
 
-  SECTION("CASE_INS_BEGINS") {
-    std::string v = "HEL"; // "hello" begins with "hel" case-insensitively
-    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CASE_INS_BEGINS, v);
-    REQUIRE(hit.passes(&pl));
+  SECTION("BEGINS_WITH") {
+    std::string v = "HEL";
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::BEGINS_WITH, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
 
     std::string v2 = "ELLO"; // not a prefix
-    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CASE_INS_BEGINS, v2);
-    REQUIRE_FALSE(miss.passes(&pl));
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::BEGINS_WITH, v2, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
   }
 
-  SECTION("CASE_INS_ENDS") {
-    std::string v = "LLO"; // "hello" ends with "llo" case-insensitively
-    FieldFilter hit(parser->format.get(), "Name", FilterComparison::CASE_INS_ENDS, v);
-    REQUIRE(hit.passes(&pl));
+  SECTION("ENDS_WITH") {
+    std::string v = "LLO";
+    FieldFilter hit(parser->format.get(), "Name", FilterComparison::ENDS_WITH, v, true);
+    for (auto* pl : all_casings) REQUIRE(hit.passes(pl));
 
     std::string v2 = "HEL"; // not a suffix
-    FieldFilter miss(parser->format.get(), "Name", FilterComparison::CASE_INS_ENDS, v2);
-    REQUIRE_FALSE(miss.passes(&pl));
+    FieldFilter miss(parser->format.get(), "Name", FilterComparison::ENDS_WITH, v2, true);
+    for (auto* pl : all_casings) REQUIRE_FALSE(miss.passes(pl));
   }
-
 }
 
 // ──────────────────────────────────────────────

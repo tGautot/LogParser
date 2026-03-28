@@ -13,7 +13,7 @@ enum FilterComparison {
   EQUAL, SMALLER, GREATER, GREATER_EQ, SMALLER_EQ,
 
   // Just for Str
-  CONTAINS, BEGINS_WITH, ENDS_WITH, CASE_INS_CONTAINS, CASE_INS_BEGINS, CASE_INS_ENDS
+  CONTAINS, BEGINS_WITH, ENDS_WITH
 };
 
 enum BitwiseOp {
@@ -72,6 +72,8 @@ private:
   char val_chr;
   std::string val_str;
 
+  bool case_insensitive_check = false;
+
   FilterComparison comp;
 
   
@@ -82,8 +84,8 @@ private:
   
   bool (FieldFilter::*pass_fn)(const ParsedLine* pl);
 public:
-  FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, std::string& str_value);
-  FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, void* base_val);
+  FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, std::string& str_value, bool str_case_ins_check = false);
+  FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, void* base_val, bool str_case_ins_check = false);
 private:
   bool _passes(const ProcessedLine* pl) override;
   bool _passes(const ParsedLine* pl) override;

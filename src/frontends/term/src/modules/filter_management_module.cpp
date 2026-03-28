@@ -3,6 +3,7 @@
 #include "terminal_modules.hpp"
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <fstream>
 #include <memory>
 #include <stdexcept>
@@ -35,6 +36,17 @@ inline void trim(std::string &s) {
     ans = v; op = code_op; \
   } 
 
+#define CHECK_FOR_COMPARATOR_TAG(cmp_txt, code_op) \
+  tag_size = sizeof(cmp_txt)-1; \
+  v = s.find(cmp_txt, start_pos); \
+  if(v < tag_stt_pos){ \
+    case_ins_check = false; \
+    tag_stt_pos = v; op = code_op; \
+    if(s.find(cmp_txt "_CI", start_pos) == v){ \
+      tag_size += 3; case_ins_check = true; \
+    } \
+  }
+
 std::pair<size_t, BitwiseOp> find_next_bitwise_op(std::string& s, size_t start_pos=0){
   BitwiseOp op = AND;
   size_t ans = std::string::npos;
@@ -47,54 +59,45 @@ std::pair<size_t, BitwiseOp> find_next_bitwise_op(std::string& s, size_t start_p
 }
 
 
-
-std::pair<size_t, FilterComparison> find_next_comparator(std::string& s, size_t start_pos=0){
+// Tag start pos, tag size, comparison, is_case_insensitive
+std::tuple<size_t, size_t, FilterComparison, bool> find_next_comparator(std::string& s, size_t start_pos=0){
   FilterComparison op = EQUAL;
-  size_t ans = std::string::npos;
+  size_t tag_stt_pos = std::string::npos;
+  size_t tag_size = std::string::npos;
   size_t v = 0;
-  CHECK_FOR_TAG("EQ ", EQUAL);
-  CHECK_FOR_TAG("EQUAL ", EQUAL);
+  bool case_ins_check = false;
 
-  CHECK_FOR_TAG("ST ", SMALLER);
-  CHECK_FOR_TAG("SMALLER ", SMALLER);
-  CHECK_FOR_TAG("SMALLER_THAN ", SMALLER);
+  CHECK_FOR_COMPARATOR_TAG("EQ", EQUAL);
+  CHECK_FOR_COMPARATOR_TAG("EQUAL", EQUAL);
 
-  CHECK_FOR_TAG("SE ", SMALLER_EQ);
-  CHECK_FOR_TAG("SMALLER_EQ ", SMALLER_EQ);
-  CHECK_FOR_TAG("SMALLER_EQUAL ", SMALLER_EQ);
-  CHECK_FOR_TAG("SMALLER_OR_EQUAL ", SMALLER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("ST", SMALLER);
+  CHECK_FOR_COMPARATOR_TAG("SMALLER", SMALLER);
+  CHECK_FOR_COMPARATOR_TAG("SMALLER_THAN", SMALLER);
 
-  CHECK_FOR_TAG("GT ", GREATER);
-  CHECK_FOR_TAG("GREATER ", GREATER);
-  CHECK_FOR_TAG("GREATER_THAN ", GREATER);
+  CHECK_FOR_COMPARATOR_TAG("SE", SMALLER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("SMALLER_EQ", SMALLER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("SMALLER_EQUAL", SMALLER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("SMALLER_OR_EQUAL", SMALLER_EQ);
 
-  CHECK_FOR_TAG("GE ", GREATER_EQ);
-  CHECK_FOR_TAG("GREATER_EQ ", GREATER_EQ);
-  CHECK_FOR_TAG("GREATER_EQUAL ", GREATER_EQ);
-  CHECK_FOR_TAG("GREATER_OR_EQUAl ", GREATER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("GT", GREATER);
+  CHECK_FOR_COMPARATOR_TAG("GREATER", GREATER);
+  CHECK_FOR_COMPARATOR_TAG("GREATER_THAN", GREATER);
 
-  CHECK_FOR_TAG("CT ", CONTAINS);
-  CHECK_FOR_TAG("CONTAINS ", CONTAINS);
+  CHECK_FOR_COMPARATOR_TAG("GE", GREATER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("GREATER_EQ", GREATER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("GREATER_EQUAL", GREATER_EQ);
+  CHECK_FOR_COMPARATOR_TAG("GREATER_OR_EQUAl", GREATER_EQ);
 
-  CHECK_FOR_TAG("BW ", BEGINS_WITH);
-  CHECK_FOR_TAG("BEGINS_WITH ", BEGINS_WITH);
+  CHECK_FOR_COMPARATOR_TAG("CT", CONTAINS);
+  CHECK_FOR_COMPARATOR_TAG("CONTAINS", CONTAINS);
 
-  CHECK_FOR_TAG("EW ", ENDS_WITH);
-  CHECK_FOR_TAG("ENDS_WITH ", ENDS_WITH);
+  CHECK_FOR_COMPARATOR_TAG("BW", BEGINS_WITH);
+  CHECK_FOR_COMPARATOR_TAG("BEGINS_WITH", BEGINS_WITH);
 
-  CHECK_FOR_TAG("CICT ", CASE_INS_CONTAINS);
-  CHECK_FOR_TAG("CI_CONTAINS ", CASE_INS_CONTAINS);
-  CHECK_FOR_TAG("CASEINS_CONTAINS ", CASE_INS_CONTAINS);
+  CHECK_FOR_COMPARATOR_TAG("EW", ENDS_WITH);
+  CHECK_FOR_COMPARATOR_TAG("ENDS_WITH", ENDS_WITH);
 
-  CHECK_FOR_TAG("CIBW ", CASE_INS_BEGINS);
-  CHECK_FOR_TAG("CI_BEGINS_WITH ", CASE_INS_BEGINS);
-  CHECK_FOR_TAG("CASEINS_BEGINS_WITH ", CASE_INS_BEGINS);
-
-  CHECK_FOR_TAG("CIEW ", CASE_INS_ENDS);
-  CHECK_FOR_TAG("CI_ENDS_WITH ", CASE_INS_ENDS);
-  CHECK_FOR_TAG("CASEINS_ENDS_WITH ", CASE_INS_ENDS);
-
-  return {ans, op};
+  return {tag_stt_pos, tag_size, op, case_ins_check};
 }
 
 std::shared_ptr<LineFilter> parse_filter_decl(std::string fdecl, LineFormat* lfmt){
@@ -135,11 +138,11 @@ parse_start:
     }
 
     // We are now supposed to only have a simple field filter (e.g.: "field_name COMPARATOR value")
-    std::pair<size_t, FilterComparison> cmp_stt = find_next_comparator(fdecl);
-    std::string field_name = fdecl.substr(0, cmp_stt.first); trim(field_name);
-    std::string value_str = fdecl.substr(cmp_stt.first+2); trim(value_str);
+    auto [tag_stt_pos, tag_size, comp, is_case_insensitive] = find_next_comparator(fdecl);
+    std::string field_name = fdecl.substr(0, tag_stt_pos); trim(field_name);
+    std::string value_str = fdecl.substr(tag_stt_pos + tag_size); trim(value_str);
 
-    return std::make_shared<FieldFilter>(lfmt, field_name, cmp_stt.second, value_str);
+    return std::make_shared<FieldFilter>(lfmt, field_name, comp, value_str, is_case_insensitive);
   }
 }
 
