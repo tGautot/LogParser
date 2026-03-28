@@ -16,6 +16,7 @@
 extern "C" {
   #include "logging.h"
 }
+#include "logging.hpp"
 
 #define SV_TO_STR(sv) std::string(sv.data(), sv.length())
 #define STRING_VIEW_PRINT(sv) static_cast<int>(sv.length()), sv.data()

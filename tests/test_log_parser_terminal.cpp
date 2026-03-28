@@ -661,3 +661,186 @@ TEST_CASE("drawRows - long raw input not truncated") {
   REQUIRE(term.frame_str.find(long_input) != std::string::npos);
   teardown();
 }
+
+// ============================================================
+// drawRows — horizontal scroll (vert_line_offset)
+// ============================================================
+
+TEST_CASE("drawRows - vert_line_offset hides beginning of lines") {
+  setup();
+  auto* lpi = make_lpi();
+  LogParserTerminal term(lpi);
+  term.term_state.nrows = 5;
+  term.term_state.ncols = 120;
+  term.term_state.line_offset = 0;
+
+  // Get first line's raw text for reference
+  term.updateDisplayState();
+  const ProcessedLine* pl = term.term_state.displayed_pls[0];
+  REQUIRE(pl != nullptr);
+  std::string full_line(pl->raw_line);
+  // First line starts with "0322 " — pick a prefix that will be clipped
+  std::string prefix = full_line.substr(0, 10);
+
+  // Draw with vert_line_offset that clips the prefix
+  term.term_state.vert_line_offset = 15;
+  term.frame_str = "";
+  term.drawRows();
+
+  // The prefix should NOT appear in the frame
+  REQUIRE(term.frame_str.find(prefix) == std::string::npos);
+  // But a later part of the line should appear
+  std::string later_part = full_line.substr(15, 20);
+  REQUIRE(term.frame_str.find(later_part) != std::string::npos);
+  teardown();
+}
+
+TEST_CASE("drawRows - vert_line_offset 0 shows line from start") {
+  setup();
+  auto* lpi = make_lpi();
+  LogParserTerminal term(lpi);
+  term.term_state.nrows = 5;
+  term.term_state.ncols = 120;
+  term.term_state.line_offset = 0;
+  term.term_state.vert_line_offset = 0;
+
+  term.updateDisplayState();
+  term.frame_str = "";
+  term.drawRows();
+
+  const ProcessedLine* pl = term.term_state.displayed_pls[0];
+  REQUIRE(pl != nullptr);
+  std::string text(pl->raw_line);
+  REQUIRE(term.frame_str.find(text) != std::string::npos);
+  teardown();
+}
+
+TEST_CASE("drawRows - vert_line_offset beyond line length renders blank") {
+  setup();
+  auto* lpi = make_lpi();
+  LogParserTerminal term(lpi);
+  term.term_state.nrows = 3;
+  term.term_state.ncols = 120;
+  term.term_state.line_offset = 0;
+
+  term.updateDisplayState();
+  const ProcessedLine* pl = term.term_state.displayed_pls[0];
+  REQUIRE(pl != nullptr);
+  std::string full_line(pl->raw_line);
+
+  // Set vert_line_offset beyond the length of any line
+  term.term_state.vert_line_offset = full_line.size() + 50;
+  term.frame_str = "";
+  term.drawRows();
+
+  // No line content should appear — only line numbers, spaces, and ansi codes
+  // Check that actual log text does not appear
+  REQUIRE(term.frame_str.find("INFO") == std::string::npos);
+  REQUIRE(term.frame_str.find("TRACE") == std::string::npos);
+  REQUIRE(term.frame_str.find("rsvp") == std::string::npos);
+  teardown();
+}
+
+TEST_CASE("drawRows - vert_line_offset shifts visible window") {
+  setup();
+  auto* lpi = make_lpi();
+  LogParserTerminal term(lpi);
+  term.term_state.nrows = 5;
+  term.term_state.ncols = 120;
+  term.term_state.line_offset = 0;
+
+  // Frame at offset 0
+  term.term_state.vert_line_offset = 0;
+  term.updateDisplayState();
+  term.frame_str = "";
+  term.drawRows();
+  std::string frame_at_0 = term.frame_str;
+
+  // Frame at offset 20
+  term.term_state.vert_line_offset = 20;
+  term.updateDisplayState();
+  term.frame_str = "";
+  term.drawRows();
+  std::string frame_at_20 = term.frame_str;
+
+  // The two frames should be different
+  REQUIRE(frame_at_0 != frame_at_20);
+
+  // The beginning of the line visible at offset 0 should not appear at offset 20
+  const ProcessedLine* pl = term.term_state.displayed_pls[0];
+  REQUIRE(pl != nullptr);
+  std::string full_line(pl->raw_line);
+  std::string start = full_line.substr(0, 10);
+  REQUIRE(frame_at_0.find(start) != std::string::npos);
+  REQUIRE(frame_at_20.find(start) == std::string::npos);
+  teardown();
+}
+
+
+TEST_CASE("drawRows - vert_line_offset with highlight word visible") {
+  setup();
+  auto* lpi = make_lpi();
+  LogParserTerminal term(lpi);
+  term.term_state.nrows = 10;
+  term.term_state.ncols = 120;
+  term.term_state.line_offset = 0;
+  term.term_state.highlight_word = "INFO";
+
+  // With vert_line_offset=0, INFO lines show highlighting (invert ansi seq)
+  term.term_state.vert_line_offset = 0;
+  term.updateDisplayState();
+  term.frame_str = "";
+  term.drawRows();
+
+  // Line 4 is an INFO line — the highlight invert tag should be present
+  REQUIRE(term.frame_str.find("\e[7m") != std::string::npos);
+  teardown();
+}
+
+TEST_CASE("drawRows - vert_line_offset past highlight word skips highlighting") {
+  setup();
+  auto* lpi = make_lpi();
+  LogParserTerminal term(lpi);
+  // Use only first few lines — line 0 starts with "0322 085338 TRACE"
+  term.term_state.nrows = 3;
+  term.term_state.ncols = 120;
+  term.term_state.line_offset = 0;
+  // Highlight "0322" which appears at the very start of lines
+  term.term_state.highlight_word = "0322";
+
+  // Scroll past "0322" (it's at positions 0-3)
+  term.term_state.vert_line_offset = 10;
+  term.updateDisplayState();
+  term.frame_str = "";
+  term.drawRows();
+
+  // "0322" is before the visible window, so it should not be highlighted
+  // Check that the highlight start tag doesn't appear for this match
+  // The word "0322" itself should not appear in the rendered text
+  REQUIRE(term.frame_str.find("0322") == std::string::npos);
+  REQUIRE(term.frame_str.find("\e[7m") == std::string::npos);
+  teardown();
+}
+
+TEST_CASE("drawRows - consistent with vert_line_offset between repeated calls") {
+  setup();
+  auto* lpi = make_lpi();
+  LogParserTerminal term(lpi);
+  term.term_state.nrows = 10;
+  term.term_state.ncols = 100;
+  term.term_state.line_offset = 5;
+  term.term_state.vert_line_offset = 15;
+
+  term.updateDisplayState();
+  term.frame_str = "";
+  term.drawRows();
+  std::string first_frame = term.frame_str;
+
+  term.updateDisplayState();
+  term.frame_str = "";
+  term.drawRows();
+  std::string second_frame = term.frame_str;
+
+  REQUIRE(first_frame == second_frame);
+  teardown();
+}
