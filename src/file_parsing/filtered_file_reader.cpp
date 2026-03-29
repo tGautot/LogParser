@@ -52,6 +52,14 @@ FilteredFileReader::FilteredFileReader(std::string& fname)
 
         // Hint: we'll access this sequentially AND randomly
         madvise(const_cast<char*>(m_file_data.data), m_file_data.size, MADV_RANDOM);
+    } else { 
+      // Create file is empty, some code doesn't handle it, instead of reworking everything
+      // just create a "fake file" with one empty line
+      m_file_data.size = 2;
+      char* fake_data = (char*)malloc(2);
+      fake_data[0]= ' '; fake_data[1] = 0;
+      m_file_data.data = (const char*)fake_data;
+      
     }
     close(fd);
     m_file_data.line_index = {0};
