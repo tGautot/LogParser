@@ -1,4 +1,5 @@
 #include "line_filter.hpp"
+#include "common.hpp"
 #include "line_format.hpp"
 #include "parsing_data.hpp"
 #include "processed_line.hpp"
@@ -221,13 +222,14 @@ bool FieldFilter::chr_passes(const ParsedLine* pl){
 
 bool FieldFilter::str_passes(const ParsedLine* pl){
   std::string_view field_val(*(pl->getStrField(parsedFieldId)));
+  std::string lowered;
   if(case_insensitive_check){
     // Make a copy of the field value, lower it, and recreate field_val from it
-    std::string lowered = std::string(field_val.data(), field_val.size());
+    lowered = std::string(field_val.data(), field_val.size());
     std::transform(lowered.begin(), lowered.end(), lowered.begin(), ::tolower);
     field_val = lowered;
   }
-  //std::cout << "Checking STR filter with cmp " << comp << " and base val " << val_str << " vs field val " << field_val << std::endl;
+  
   switch (comp)
   {
   case FilterComparison::EQUAL:
