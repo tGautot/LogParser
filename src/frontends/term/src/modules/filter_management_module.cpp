@@ -208,12 +208,12 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
     
     if(cmd.find(":fclear") == 0){
       update_term_state_with_filter(nullptr);
-      return 0;
+      return 1;
     }
 
     LineFormat* lf = lpi->getLineFormat() ;
     if(lf == nullptr){
-      throw std::runtime_error("Cannot set format without having specified a line format");
+      throw std::runtime_error("Cannot set filter without having specified a line format");
     }
     size_t space_pos = cmd.find_first_of(" ");
     std::string short_cmd = cmd.substr(0, space_pos);
@@ -241,7 +241,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
 
       if(cmd.find(":fset ") == 0){
         update_term_state_with_filter(filter);
-        return 0;
+        return 1;
       }
       
       
@@ -254,7 +254,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
         }
         update_term_state_with_filter(filter);
         
-        return 0;
+        return 1;
       }
       LOG(1, "Already filter active, combining them...\n");
       std::shared_ptr<LineFilter> new_filter;
@@ -272,6 +272,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
         new_filter = std::make_shared<CombinedFilter>(old_filter, filter, AND);
       }
       update_term_state_with_filter(new_filter);
+      return 1;
     }    
     return 0;
   });

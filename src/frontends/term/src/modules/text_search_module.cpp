@@ -79,6 +79,7 @@ void TextSearchModule::registerCommandCallback(LogParserTerminal& term){
       searching = true;
       LOG_FCT(3, "Command is indeed for search, looking for string %s", match_str.data());
       LOG_FCT(3, "Found it at %lu\n", l);
+      return 1;
     } else {
       // TODO maybe searching = false;? See how it feels without any reset
     }

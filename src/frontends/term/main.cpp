@@ -39,7 +39,7 @@ int main(int argc, char** argv){
   logger_setup();
   std::signal(SIGINT, signal_handler);
   logger_set_file("./logs.log");
-  int log_level = 5;
+  int log_level = 0;
   int argi = 1;
   if(argi < argc && (std::string(argv[argi]) == "-L" || std::string(argv[argi]) == "--log-level")){
     argi++;

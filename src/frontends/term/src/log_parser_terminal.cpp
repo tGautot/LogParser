@@ -365,12 +365,17 @@ void LogParserTerminal::insertAtRawCursor(const std::string& s){
 }
 
 void LogParserTerminal::submitRawInput(){
+  int cmd_used = 0;
   try{
     for(auto cmd_cb : command_cbs){
-      cmd_cb(term_state.raw_input, term_state, lpi);
+      cmd_used |= cmd_cb(term_state.raw_input, term_state, lpi);
     }
+    term_state.latest_error = "";
   } catch(std::exception& e){
     term_state.latest_error = e.what();
+  }
+  if(cmd_used == 0){
+    term_state.latest_error = "The command '" + term_state.raw_input + "' was not recognized";
   }
   term_state.input_mode = ACTION;
   term_state.raw_input = "";

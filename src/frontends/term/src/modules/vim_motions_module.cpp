@@ -38,13 +38,8 @@ void VimMotionsModule::registerUserActionCallback(LogParserTerminal& lpt) {
 void VimMotionsModule::registerCommandCallback(LogParserTerminal& lpt) {
   lpt.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int{
     if(cmd.size() == 1 || !is_digit(cmd[1])) {
-      return 1;
+      return 0;
     }
-    /* 
-      TODO: Allow using :1234 to go to line 1234
-      Need to define if this would be local or global line id, needs clarity
-    */
-    if(!std::isdigit(cmd[1])) return 0;
 
     size_t line_num = atoll(cmd.data() + 1);
     lpi->jumpToLocalLine(line_num);
@@ -59,6 +54,6 @@ void VimMotionsModule::registerCommandCallback(LogParserTerminal& lpt) {
       state.cy = line_num;
     }
     
-    return 0;
+    return 1;
   });
 }
