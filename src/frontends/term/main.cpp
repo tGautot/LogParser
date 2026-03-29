@@ -1,3 +1,4 @@
+#include <fstream>
 #include <memory>
 #include <stdlib.h>
 #include <termios.h>
@@ -45,6 +46,14 @@ int main(int argc, char** argv){
     return 1;
   }
   std::string filepath = argv[1];
+  {
+    std::ifstream is(filepath);
+    if(!is.good()){
+      std::cout << "Could not open file " << filepath << ". Does it exist?" << std::endl;
+      return 0;
+    }
+    is.close();
+  }
   std::string filename = std::filesystem::canonical(filepath).string();
 
 
