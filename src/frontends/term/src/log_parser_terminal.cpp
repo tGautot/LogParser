@@ -1,5 +1,6 @@
 #include "log_parser_terminal.hpp"
 #include "ConfigHandler.hpp"
+#include "filter_parsing.hpp"
 #include "line_format.hpp"
 #include "processed_line.hpp"
 
@@ -149,8 +150,15 @@ LogParserTerminal::LogParserTerminal(LogParserInterface* lpi_ptr)
 }
 
 LogParserTerminal::LogParserTerminal(const std::string& filename, std::unique_ptr<LineFormat> line_format){
-  lpi = new LogParserInterface(filename, std::move(line_format), nullptr);
-  m_profile = ConfigHandler().getProfileForFile(std::filesystem::canonical(filename).string());
+  ConfigHandler cfg;
+  m_profile = cfg.getProfileForFile(std::filesystem::canonical(filename).string());
+  
+  std::shared_ptr<LineFilter> filter = nullptr;
+  std::string filter_str;
+  if( (filter_str = cfg.get(m_profile, CFG_FILTER, "")) != ""){
+    filter = parse_filter_decl(filter_str, line_format.get());
+  }
+  lpi = new LogParserInterface(filename, std::move(line_format), filter);
   setupTerm(term_state);
   atexit(rollbackTerm);
   term_state.cx = 4;
@@ -370,12 +378,11 @@ void LogParserTerminal::submitRawInput(){
     for(auto cmd_cb : command_cbs){
       cmd_used |= cmd_cb(term_state.raw_input, term_state, lpi);
     }
-    term_state.latest_error = "";
+    if(cmd_used == 0){
+      term_state.latest_error = "The command '" + term_state.raw_input + "' was not recognized";
+    }
   } catch(std::exception& e){
     term_state.latest_error = e.what();
-  }
-  if(cmd_used == 0){
-    term_state.latest_error = "The command '" + term_state.raw_input + "' was not recognized";
   }
   term_state.input_mode = ACTION;
   term_state.raw_input = "";

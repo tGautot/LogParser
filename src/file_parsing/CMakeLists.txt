@@ -25,4 +25,5 @@ target_include_directories(file_parsing
 
 target_link_libraries(file_parsing
     line_parsing
-    logging)
+    logging
+    utils_common)

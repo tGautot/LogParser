@@ -12,7 +12,7 @@ bool ConfigHandler::s_dirty  = false;
 
 static std::string cfgFilePath() {
   const char* home = getenv("HOME");
-  return home ? std::string(home) + "/.lr" : ".lr";
+  return home ? std::string(home) + "/.logram" : ".logram";
 }
 
 static const std::string DEFAULT_CFG =

@@ -22,7 +22,7 @@ target_sources(logramtui
 
 target_include_directories(logramtui PUBLIC include ../../file_parsing)
 
-target_link_libraries(logramtui PUBLIC logging log_parser)
+target_link_libraries(logramtui PUBLIC logging log_parser utils_common) 
 
 add_executable(lgm main.cpp)
 target_compile_options(lgm PRIVATE "${CMAKE_CXX_FLAGS_WARNINGS}")

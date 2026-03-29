@@ -43,9 +43,9 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
     if(lf == nullptr){
       throw std::runtime_error("Cannot set filter without having specified a line format");
     }
-    size_t space_pos = cmd.find_first_of(" ");
+    size_t space_pos = cmd.find(" ");
     std::string short_cmd = cmd.substr(0, space_pos);
-
+    LOG(3, "short cmd is %s\n", short_cmd.data());
     if(short_cmd == ":fset" || short_cmd == ":f" || short_cmd == ":fadd" || short_cmd == ":fand" ||
         short_cmd == ":for" || short_cmd == ":fxor" || short_cmd == ":fnor" || short_cmd == ":fout"){
       

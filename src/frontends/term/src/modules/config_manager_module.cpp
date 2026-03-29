@@ -1,9 +1,13 @@
 
+#include "line_filter.hpp"
 #include "line_format.hpp"
 #include "terminal_modules.hpp"
 #include "ConfigHandler.hpp"
+#include "string_utils.hpp"
+
 #include <filesystem>
 #include <memory>
+#include <stdexcept>
 
 #include "logging.hpp"
 
@@ -18,7 +22,19 @@ void ConfigManagerModule::registerCommandCallback(LogParserTerminal& lpt) {
     if(subcmd.find("set ") == 0) {
       std::string kv_str = subcmd.substr(4); // skip "set "
       size_t eq = kv_str.find('=');
-      if(eq == std::string::npos) return 1;
+      if(eq == std::string::npos){
+        trim(kv_str);
+        if(kv_str == "filter"){
+          std::shared_ptr<LineFilter> filter = lpi->getFilter();
+          if(filter == nullptr) throw std::runtime_error("Cannot save filter, no active filter");
+          ConfigHandler cfg;
+          std::string profile = cfg.getProfileForFile(std::filesystem::canonical(lpi->filename).string());
+          cfg.set(profile, CFG_FILTER, filter->to_string());
+          cfg.save(profile);
+          return 1;
+        }
+        throw std::invalid_argument("Unexpected input for ':cfg set' command");
+      }
 
       std::string key = kv_str.substr(0, eq);
       std::string val = kv_str.substr(eq + 1);
