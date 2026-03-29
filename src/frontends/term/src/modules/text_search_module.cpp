@@ -62,6 +62,7 @@ void TextSearchModule::registerUserActionCallback(LogParserTerminal& term) {
       // Setup search mode manually
       state.input_mode = RAW;
       state.raw_input = ":?";  
+      state.raw_input_cursor = 2;
     }
     return 0;
   });
