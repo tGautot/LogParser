@@ -39,13 +39,24 @@ int main(int argc, char** argv){
   logger_setup();
   std::signal(SIGINT, signal_handler);
   logger_set_file("./logs.log");
-  logger_set_minlvl(5);
+  int log_level = 5;
+  int argi = 1;
+  if(argi < argc && (std::string(argv[argi]) == "-L" || std::string(argv[argi]) == "--log-level")){
+    argi++;
+    if(argi >= argc){
+      printf("Usage ./lp_term [-L <log_level>] <file_path>\n");
+      return 1;
+    }
+    log_level = atoi(argv[argi]);
+    argi++;
+  }
+  logger_set_minlvl(log_level);
   LOG(3, "Starting log\n");
-  if(argc != 2){
-    printf("Usage ./lp_term <file_path>\n");
+  if(argi >= argc){
+    printf("Usage ./lp_term [-L <log_level>] <file_path>\n");
     return 1;
   }
-  std::string filepath = argv[1];
+  std::string filepath = argv[argi];
   {
     std::ifstream is(filepath);
     if(!is.good()){
