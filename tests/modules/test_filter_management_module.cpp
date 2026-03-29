@@ -639,6 +639,7 @@ TEST_CASE("FilterManagementModule - :fout inverts then ANDs") {
 
   send_cmd(term, ":fout Level EQ TRACE");
   auto filter = lpi->getFilter();
+  LOG(1, "Got filter %p\n", filter.get());
   auto* combined = dynamic_cast<CombinedFilter*>(filter.get());
   REQUIRE(combined != nullptr);
   REQUIRE(combined->op == BitwiseOp::AND);
@@ -663,6 +664,173 @@ TEST_CASE("FilterManagementModule - :f on empty filter just sets it") {
   // Should NOT be a CombinedFilter — there was nothing to combine with
   auto* combined = dynamic_cast<CombinedFilter*>(filter.get());
   REQUIRE(combined == nullptr);
+
+  delete lpi;
+  teardown();
+}
+
+// ──────────────────────────────────────────────
+// Cursor repositioning when filter changes
+// ──────────────────────────────────────────────
+
+// sample.log (62 lines, 0-indexed):
+//   INFO at globals:  4, 12, 14, 20, 29, 36, 41, 49, 51, 57
+//   Binary (bad fmt): 25, 26, 27, 28
+// With INFO filter + accept_bad_format:
+//   valid_line_index = [4,12,14,20, 25,26,27,28, 29,36,41,49,51,57]
+//   local: 0  1  2  3   4  5  6  7   8  9 10 11 12 13
+
+TEST_CASE("Cursor reposition - fset: cursor on passing line stays on same global line") {
+  setup();
+  LogParserInterface* lpi = make_lpi();
+  auto term = make_filter_term(lpi);
+
+  // Cursor on global 4 (first INFO line)
+  term.term_state.cy = 4;
+  term.term_state.line_offset = 0;
+
+  send_cmd(term, ":fset Level EQ INFO");
+
+  // Global 4 passes → local 0
+  REQUIRE(term.term_state.line_offset + term.term_state.cy == 0);
+  REQUIRE(lpi->localToGlobalLineId(term.term_state.line_offset + term.term_state.cy) == 4);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("Cursor reposition - fset: cursor on passing line with line_offset") {
+  setup();
+  LogParserInterface* lpi = make_lpi();
+  auto term = make_filter_term(lpi);
+
+  // Cursor on global 12 (second INFO) via cy=2, offset=10
+  term.term_state.cy = 2;
+  term.term_state.line_offset = 10;
+
+  send_cmd(term, ":fset Level EQ INFO");
+
+  // Global 12 passes → local 1
+  REQUIRE(term.term_state.line_offset + term.term_state.cy == 1);
+  REQUIRE(lpi->localToGlobalLineId(term.term_state.line_offset + term.term_state.cy) == 12);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("Cursor reposition - fset: cursor on non-passing line, nearby prior passing line") {
+  setup();
+  LogParserInterface* lpi = make_lpi();
+  auto term = make_filter_term(lpi);
+
+  // Cursor on global 5 (TRACE, right after INFO at global 4)
+  term.term_state.cy = 5;
+  term.term_state.line_offset = 0;
+
+  send_cmd(term, ":fset Level EQ INFO");
+
+  // Global 5 doesn't pass → prior passing = global 4 → local 0
+  REQUIRE(term.term_state.line_offset + term.term_state.cy == 0);
+  REQUIRE(lpi->localToGlobalLineId(term.term_state.line_offset + term.term_state.cy) == 4);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("Cursor reposition - fset: cursor on non-passing line, distant prior passing line") {
+  setup();
+  LogParserInterface* lpi = make_lpi();
+  auto term = make_filter_term(lpi);
+
+  // Cursor on global 30 (TRACE, just after INFO at global 29)
+  // Prior passing line: global 29 → local 8
+  term.term_state.cy = 0;
+  term.term_state.line_offset = 30;
+
+  send_cmd(term, ":fset Level EQ INFO");
+
+  line_t cursor_local = term.term_state.line_offset + term.term_state.cy;
+  REQUIRE(cursor_local == 8);
+  REQUIRE(lpi->localToGlobalLineId(cursor_local) == 29);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("Cursor reposition - fset: cursor before any passing line goes to first passing") {
+  setup();
+  LogParserInterface* lpi = make_lpi();
+  auto term = make_filter_term(lpi);
+
+  // Cursor on global 0 (TRACE, before any INFO line)
+  term.term_state.cy = 0;
+  term.term_state.line_offset = 0;
+
+  send_cmd(term, ":fset Level EQ INFO");
+
+  // No prior passing line → first passing = global 4 → local 0
+  REQUIRE(term.term_state.line_offset + term.term_state.cy == 0);
+  REQUIRE(lpi->localToGlobalLineId(term.term_state.line_offset + term.term_state.cy) == 4);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("Cursor reposition - fset: cursor near end of file goes to last prior passing line") {
+  setup();
+  LogParserInterface* lpi = make_lpi();
+  auto term = make_filter_term(lpi);
+
+  // Cursor on global 60 (TRACE, near end of file)
+  // Prior passing line: global 57 → local 13
+  term.term_state.cy = 0;
+  term.term_state.line_offset = 60;
+
+  send_cmd(term, ":fset Level EQ INFO");
+
+  line_t cursor_local = term.term_state.line_offset + term.term_state.cy;
+  REQUIRE(cursor_local == 13);
+  REQUIRE(lpi->localToGlobalLineId(cursor_local) == 57);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("Cursor reposition - fclear: cursor stays on same global line") {
+  setup();
+  LogParserInterface* lpi = make_info_filtered_lpi();
+  auto term = make_filter_term(lpi);
+
+  // With INFO filter, cursor at local 0 → global 4
+  term.term_state.cy = 0;
+  term.term_state.line_offset = 0;
+
+  send_cmd(term, ":fclear");
+
+  // After clearing, global 4 → local 4 (all lines visible)
+  REQUIRE(term.term_state.line_offset + term.term_state.cy == 4);
+  REQUIRE(lpi->localToGlobalLineId(term.term_state.line_offset + term.term_state.cy) == 4);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("Cursor reposition - fclear: preserves screen position with line_offset") {
+  setup();
+  LogParserInterface* lpi = make_info_filtered_lpi();
+  auto term = make_filter_term(lpi);
+
+  // With INFO filter, cursor at local 9 → global 36, displayed at cy=9
+  term.term_state.cy = 9;
+  term.term_state.line_offset = 0;
+
+  send_cmd(term, ":fclear");
+
+  // After clearing, global 36 → local 36 (all lines visible)
+  // new_local(36) > cy(9) → line_offset = 36 - 9 = 27, cy stays 9
+  REQUIRE(term.term_state.cy == 9);
+  REQUIRE(term.term_state.line_offset == 27);
+  REQUIRE(lpi->localToGlobalLineId(term.term_state.line_offset + term.term_state.cy) == 36);
 
   delete lpi;
   teardown();

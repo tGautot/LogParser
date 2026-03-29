@@ -82,9 +82,9 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
 
 }
 
-void LogParserInterface::setLineFormat(std::unique_ptr<LineFormat> lf, line_t global_ancore_line){
+void LogParserInterface::setLineFormat(std::unique_ptr<LineFormat> lf, line_t global_anchor_line){
   ffr->setFormat(std::move(lf));
-  reset_and_refill_block(global_ancore_line);
+  reset_and_refill_block(global_anchor_line);
 }
 
 LineFormat* LogParserInterface::getLineFormat(){
@@ -93,9 +93,9 @@ LineFormat* LogParserInterface::getLineFormat(){
 }
 
 
-void LogParserInterface::setFilter(std::shared_ptr<LineFilter> lf, line_t global_ancore_line){
+void LogParserInterface::setFilter(std::shared_ptr<LineFilter> lf, line_t global_anchor_line){
   ffr->setFilter(lf);
-  reset_and_refill_block(global_ancore_line);
+  reset_and_refill_block(global_anchor_line);
 }
 
 std::shared_ptr<LineFilter> LogParserInterface::getFilter(){

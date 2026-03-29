@@ -98,6 +98,9 @@ std::tuple<size_t, size_t, FilterComparison, bool> find_next_comparator(std::str
   CHECK_FOR_COMPARATOR_TAG("BW", BEGINS_WITH);
   CHECK_FOR_COMPARATOR_TAG("BEGINS_WITH", BEGINS_WITH);
 
+  CHECK_FOR_COMPARATOR_TAG("SW", BEGINS_WITH);
+  CHECK_FOR_COMPARATOR_TAG("STARTS_WITH", BEGINS_WITH);
+
   CHECK_FOR_COMPARATOR_TAG("EW", ENDS_WITH);
   CHECK_FOR_COMPARATOR_TAG("ENDS_WITH", ENDS_WITH);
 
@@ -149,6 +152,11 @@ parse_start:
     // We are now supposed to only have a simple field filter (e.g.: "field_name COMPARATOR value")
     auto [tag_stt_pos, tag_size, comp, is_case_insensitive] = find_next_comparator(fdecl);
     LOG(3, "Found comp %d (case ins: %d) at pos %d, tag is of size %d.\n", comp, is_case_insensitive, tag_stt_pos, tag_size);
+
+    if(tag_stt_pos == std::string::npos){
+      throw std::invalid_argument("Could not find any of the recognized comparison operator");
+    }
+
     std::string field_name = fdecl.substr(0, tag_stt_pos); trim(field_name);
     std::string value_str = fdecl.substr(tag_stt_pos + tag_size); trim(value_str);
 
@@ -160,8 +168,28 @@ void FilterManagementModule::registerUserInputMapping(LogParserTerminal&){}
 void FilterManagementModule::registerUserActionCallback(LogParserTerminal&) {}
 void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
   lpt.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int{
+    
+    auto update_term_state_with_filter = [&state, lpi](std::shared_ptr<LineFilter> filter){
+      // When setting a new filter the whole global->local mapping changes
+      // That means whichever line the cursor is on right now might not make any sense after applying the filter
+      // (e.g. cursor is on last line without filter -> add new filter -> cursor will be on nothing)
+      // So we must apply the filter, parse the file until the global line on which the filter lives
+      // Then check which new local line that global line maps to and update the terminal state to now have the cursor there
+      LOG(1, "Setting new filter to %p\n", filter.get());
+      line_t global_focus_line = lpi->localToGlobalLineId(state.line_offset + state.cy);
+      lpi->setFilter(filter, global_focus_line);
+      line_t new_local_id = lpi->globalToLocalLineId(global_focus_line);
+      if(new_local_id <= (line_t) state.cy){
+        state.cy = new_local_id;
+        state.line_offset = 0;
+      } else {
+        state.line_offset = new_local_id - state.cy;
+      }
+    };
+    
+    
     if(cmd.find(":fclear") == 0){
-      lpi->setFilter(nullptr);
+      update_term_state_with_filter(nullptr);
       return 0;
     }
 
@@ -196,9 +224,8 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
 
       std::shared_ptr<LineFilter> filter = parse_filter_decl(filter_str, lf);
 
-
       if(cmd.find(":fset ") == 0){
-        lpi->setFilter(filter);
+        update_term_state_with_filter(filter);
         return 0;
       }
       
@@ -206,9 +233,15 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
       
       std::shared_ptr<LineFilter> old_filter = lpi->getFilter();
       if(old_filter == nullptr) {
-        lpi->setFilter(filter);
+        LOG(1, "No filter yet, adding it\n");
+        if(short_cmd == ":fout"){
+          filter->invert();
+        }
+        update_term_state_with_filter(filter);
+        
         return 0;
       }
+      LOG(1, "Already filter active, combining them...\n");
       std::shared_ptr<LineFilter> new_filter;
       if(cmd.find(":f ") == 0 || cmd.find(":fadd ") == 0 || cmd.find(":fand ") == 0){
         new_filter = std::make_shared<CombinedFilter>(old_filter, filter, AND);
@@ -223,7 +256,7 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
         filter->invert();
         new_filter = std::make_shared<CombinedFilter>(old_filter, filter, AND);
       }
-      lpi->setFilter(new_filter);
+      update_term_state_with_filter(new_filter);
     }    
     return 0;
   });
