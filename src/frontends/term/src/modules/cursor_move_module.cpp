@@ -3,7 +3,7 @@
 #include "terminal_modules.hpp"
 
 bool isCursorOnLastLine(term_state_t &term_state, LogParserInterface *lpi){
-  return (term_state.cy + term_state.line_offset == lpi->known_last_line);
+  return (lpi->localToGlobalLineId(term_state.cy + term_state.line_offset) == lpi->known_last_line);
 }
 
 void CursorMoveModule::registerUserInputMapping(LogParserTerminal& term){

@@ -102,6 +102,12 @@ std::shared_ptr<LineFilter> LogParserInterface::getFilter(){
   return ffr->m_config->filter;
 }
 
+void LogParserInterface::setBadFormatAccepted(bool accept, line_t global_anchor_line){
+  ffr->acceptBadFormat(accept);
+  reset_and_refill_block(global_anchor_line);
+
+}
+
 void LogParserInterface::print_lines_in_block(){
   printf("current block: flli: %lu - llli: %lu\n", block.first_line_local_id, block.first_line_local_id + block_size);
   for(size_t i = 0; i < block_size; i++){

@@ -67,6 +67,7 @@ private:
   LineFormat* getLineFormat();
   void setFilter(std::shared_ptr<LineFilter> lf, line_t global_anchor_line = 1);
   std::shared_ptr<LineFilter> getFilter();
+  void setBadFormatAccepted(bool accept, line_t global_anchor_line);
 
   line_t highestIndexedGlobalLine(line_t global_id){return ffr->m_filtered_file_data->line_passes.size();}
   bool isGlobalLineAccepted(line_t global_id){return ffr->m_filtered_file_data->line_passes[global_id];}
@@ -101,10 +102,6 @@ private:
   line_info_t getLine(line_t local_line_id);
 
   void jumpToLocalLine(line_t local_line_id);
-  
-  // void jumpToGlobalLine(line_t global_line_id);
-  //std::vector<std::string_view> getLines(line_t from, line_t count);
-  //std::vector<std::string_view> getFromLastLine(size_t count);
 
   std::pair<line_t, size_t> findNextOccurence(std::string match, line_t from_local, bool forward = true);
   

@@ -85,6 +85,7 @@ public:
   void reset();
   void setFormat(std::unique_ptr<LineFormat> format);
   void setFilter(std::shared_ptr<LineFilter> filter);
+  void acceptBadFormat(bool hide);
 
   void seekRawLine(line_t line_num);
 

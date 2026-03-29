@@ -25,9 +25,26 @@ void ConfigManagerModule::registerCommandCallback(LogParserTerminal& lpt) {
 
       // Special case here, might want a better way to handle "big" config changes that pushing it from here
       // PS: we do it before setting config, that way if format is badly formated we don't save it
+      line_t global_focus_line = lpi->localToGlobalLineId(state.line_offset + state.cy);
+      bool need_cursor_move = false;
       if(key == CFG_LINE_FORMAT){
         std::unique_ptr<LineFormat> format = LineFormat::fromFormatString(val);
-        lpi->setLineFormat(std::move(format), lpi->local_to_global_id[state.line_offset+state.cy]);
+        lpi->setLineFormat(std::move(format), global_focus_line);
+        need_cursor_move = true;
+      }
+      if(key == CFG_HIDE_BAD_FMT){
+        bool hidden = val == "true";
+        lpi->setBadFormatAccepted(!hidden, global_focus_line);
+        need_cursor_move = true;
+      }
+      if(need_cursor_move){
+        line_t new_local_id = lpi->globalToLocalLineId(global_focus_line);
+        if(new_local_id <= (line_t) state.cy){
+          state.cy = new_local_id;
+          state.line_offset = 0;
+        } else {
+          state.line_offset = new_local_id - state.cy;
+        }
       }
 
       ConfigHandler cfg;
