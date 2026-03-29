@@ -3,6 +3,7 @@
 #include "line_format.hpp"
 #include "processed_line.hpp"
 
+#include <exception>
 #include <filesystem>
 
 #include <cstddef>
@@ -287,15 +288,24 @@ void LogParserTerminal::drawRows(){
   frame_str += ansi("bg_" + cfg.get(m_profile, CFG_SL_BG_COLOR), false);
   frame_str += ansi("fg_" + cfg.get(m_profile, CFG_SL_TXT_COLOR), false);
   if(term_state.input_mode == ACTION){
+    if(term_state.latest_error.empty()){
     // Status Line
-    snprintf(buf, 80, "Status: cy%d:cx%d:lo%lu:vlo%lu (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.line_offset, term_state.vert_line_offset, term_state.nrows, term_state.ncols, term_state.frame_num);
-    char buf2[81];
-    snprintf(buf2, 80, "BLK flli=%lu,frm=%lu,to=%lu,cll=%s  ", lpi->block.first_line_local_id, lpi->block.lines.front().line_num, lpi->block.lines.back().line_num, lpi->block.contains_last_line ? "true" : "false");
-    frame_str += buf;
-    if(strlen(buf) + strlen(buf2) < term_state.ncols){
-      frame_str += std::string(term_state.ncols-strlen(buf)-strlen(buf2), ' ');
+      snprintf(buf, 80, "Status: cy%d:cx%d:lo%lu:vlo%lu (%d:%d) frame: %lu", term_state.cy, term_state.cx, term_state.line_offset, term_state.vert_line_offset, term_state.nrows, term_state.ncols, term_state.frame_num);
+      char buf2[81];
+      snprintf(buf2, 80, "BLK flli=%lu,frm=%lu,to=%lu,cll=%s  ", lpi->block.first_line_local_id, lpi->block.lines.front().line_num, lpi->block.lines.back().line_num, lpi->block.contains_last_line ? "true" : "false");
+      frame_str += buf;
+      if(strlen(buf) + strlen(buf2) < term_state.ncols){
+        frame_str += std::string(term_state.ncols-strlen(buf)-strlen(buf2), ' ');
+      }
+      frame_str += buf2;
+    } else {
+      frame_str += ansi("bg_red", false);
+      frame_str += ansi("fg_white" , true);
+      frame_str += term_state.latest_error.substr(0, term_state.ncols);
+      if(term_state.latest_error.size() < term_state.ncols){
+        frame_str += std::string(term_state.ncols - term_state.latest_error.size(), ' '); 
+      }
     }
-    frame_str += buf2;
   } else {
     if(term_state.input_mode == RAW) {
       std::string command = term_state.raw_input.substr(0,term_state.ncols);
@@ -355,8 +365,12 @@ void LogParserTerminal::insertAtRawCursor(const std::string& s){
 }
 
 void LogParserTerminal::submitRawInput(){
-  for(auto cmd_cb : command_cbs){
-    cmd_cb(term_state.raw_input, term_state, lpi);
+  try{
+    for(auto cmd_cb : command_cbs){
+      cmd_cb(term_state.raw_input, term_state, lpi);
+    }
+  } catch(std::exception& e){
+    term_state.latest_error = e.what();
   }
   term_state.input_mode = ACTION;
   term_state.raw_input = "";
@@ -488,8 +502,12 @@ user_action_t LogParserTerminal::getUserAction(){
 }
 
 void LogParserTerminal::handleUserAction(user_action_t action){
-  for(ActionCallbackPtr cb : action_cbs){
-    cb(action, term_state, lpi);
+  try {
+    for(ActionCallbackPtr cb : action_cbs){
+      cb(action, term_state, lpi);
+    }
+  } catch (std::exception& e){
+    term_state.latest_error = e.what();
   }
   term_state.current_action_multiplier = 1;
 }

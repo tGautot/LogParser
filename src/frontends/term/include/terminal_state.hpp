@@ -23,6 +23,7 @@ typedef struct term_state_t {
   size_t raw_input_cursor = 0;
   std::vector<const ProcessedLine*> displayed_pls;
   std::string highlight_word;
+  std::string latest_error;
 } term_state_t;
 
   #endif

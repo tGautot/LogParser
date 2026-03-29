@@ -160,7 +160,7 @@ parse_start:
 
     std::string field_name = fdecl.substr(0, tag_stt_pos); trim(field_name);
     std::string value_str = fdecl.substr(tag_stt_pos + tag_size); trim(value_str);
-
+    LOG(3, "Making filter for field %s with comp %d(ci:%d), value is %s\n", field_name.data(), comp, is_case_insensitive, value_str.data());
     if(field_name == "line_num"){
       if(comp != FilterComparison::CONTAINS){
         throw std::invalid_argument("Special filter linenum must have tag CT or CONTAINS before value");
@@ -224,11 +224,8 @@ void FilterManagementModule::registerCommandCallback(LogParserTerminal& lpt) {
       std::string filter_str = "";
 
       size_t arg_start = space_pos; 
-      LOG(5, "arg_start=%d, cmd.size()=%d, std::isspace=%d\n", arg_start, cmd.size(), std::isspace(cmd[arg_start]));
-      while(arg_start < cmd.size() && std::isspace(cmd[arg_start])){
-        LOG(5, "arg_start=%d, cmd.size()=%d, std::isspace=%d\n", arg_start, cmd.size(), std::isspace(cmd[arg_start]));
-        arg_start++;};
-      LOG(5, "arg_start=%d, cmd.size()=%d, std::isspace=%d\n", arg_start, cmd.size(), std::isspace(cmd[arg_start]));
+      while(arg_start < cmd.size() && std::isspace(cmd[arg_start])){arg_start++;};
+      
       if(arg_start < cmd.size()){
         std::ifstream file(cmd.data() + arg_start);
         if(file.is_open() && file.good()){

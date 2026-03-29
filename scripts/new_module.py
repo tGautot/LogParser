@@ -23,8 +23,21 @@ class MODULE_NAME : public LogParserTerminalModule {
 src_template = """
 #include "terminal_modules.hpp"
 
-void MODULE_NAME::registerUserInputMapping(LogParserTerminal&){}
-void MODULE_NAME::registerUserActionCallback(LogParserTerminal&) {}
+#define MY_ACTION 999
+
+void MODULE_NAME::registerUserInputMapping(LogParserTerminal&){
+  // My Action will be fired when the user enters AAA
+  lpt.registerUserInputMapping("AAA", MY_ACTION);
+}
+void MODULE_NAME::registerUserActionCallback(LogParserTerminal&) {
+  lpt.registerActionCallback([](user_action_t act, term_state_t& term_state, LogParserInterface* lpi)-> int{
+    if(act == MY_ACTION){
+      // Do stuff
+      return 1;
+    }
+    return 0;
+  });
+}
 void MODULE_NAME::registerCommandCallback(LogParserTerminal& lpt) {
   lpt.registerCommandCallback([](std::string& cmd, term_state_t& state, LogParserInterface* lpi) -> int{
     // TODO, check for the command you want to handle here (e.g cmd.find(":my_cmd") == 0)

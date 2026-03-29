@@ -1,4 +1,5 @@
 #include "filtered_file_reader.hpp"
+#include "common.hpp"
 #include "line_format.hpp"
 #include "processed_line.hpp"
 
@@ -239,6 +240,7 @@ bool FilteredFileReader::getNextValidLine(ProcessedLine& pl){
 
       pl.set_data(m_curr_line-1, s, line_size, m_config->parser.get(), m_cursor);
       
+      LOG(5, "Checking if line \"%s\" is accepted..\n", SV_TO_STR(pl.raw_line).data());
       // Badly formatted: accept/reject based solely on accept_bad_format                                                                                                                         
       // Well formatted: apply filter normally
       m_filtered_file_data->line_passes.push_back(

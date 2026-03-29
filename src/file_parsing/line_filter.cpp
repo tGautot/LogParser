@@ -1,5 +1,4 @@
 #include "line_filter.hpp"
-#include "common.hpp"
 #include "line_format.hpp"
 #include "parsing_data.hpp"
 #include "processed_line.hpp"

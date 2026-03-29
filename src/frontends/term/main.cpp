@@ -118,6 +118,11 @@ int main(int argc, char** argv){
   cfgmm.registerUserInputMapping(lpt);
   cfgmm.registerUserActionCallback(lpt);
   cfgmm.registerCommandCallback(lpt);
+
+  HideLatestErrorModule hlem;
+  hlem.registerUserInputMapping(lpt);
+  hlem.registerUserActionCallback(lpt);
+  hlem.registerCommandCallback(lpt);
   lpt.loop();
   logger_teardown();
 }
