@@ -61,7 +61,7 @@ void LogParserInterface::reset_and_refill_block(line_t around_global_line){
   uint32_t nread, line_local_id = 0, lines_left = block_size/2;
   ffr->jumpToGlobalLine(0);
   block.first_line_local_id = 0;
-  while( lines_left > 0  && 
+  while( (block.lines.size() < block_size || lines_left > 0)  && 
       (nread = ffr->getNextValidLine(pl)) != 0){
     if(block.lines.full()){
       block.first_line_local_id++;
