@@ -15,7 +15,32 @@
 CombinedFilter::CombinedFilter(std::shared_ptr<LineFilter> left, std::shared_ptr<LineFilter> right, BitwiseOp op)
   : left_filter(left), right_filter(right), op(op){}
 
-bool CombinedFilter::_passes(const ProcessedLine* pl){ return _passes(pl->pl.get()); }
+
+// A complete copy paste between the two funcs of CombinedFilter....
+
+bool CombinedFilter::_passes(const ProcessedLine* pl){ 
+    bool left_ok = left_filter->passes(pl);
+
+    if( left_ok && op==OR ) return true;
+    if(!left_ok && op==AND) return false;
+    if( left_ok && op==NOR) return false;
+
+    bool right_ok = right_filter->passes(pl);
+
+    switch (op) {
+      case AND:
+        return  left_ok && right_ok;
+      case OR:
+        return  left_ok || right_ok;
+      case XOR:
+        return  left_ok ^  right_ok;
+      case NOR:
+        return !(left_ok || right_ok);
+      default:
+        throw std::runtime_error("Forgot to handle op of combined filter");
+    }
+
+}
 
 bool CombinedFilter::_passes(const ParsedLine* pl) {
   bool left_ok = left_filter->passes(pl);
