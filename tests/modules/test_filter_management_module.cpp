@@ -486,6 +486,110 @@ TEST_CASE("parse_filter_decl - unmatched paren throws") {
 }
 
 // ──────────────────────────────────────────────
+// parse_filter_decl – line_num special filter
+// ──────────────────────────────────────────────
+
+TEST_CASE("parse_filter_decl - line_num CT returns LineNumberFilter") {
+  setup();
+  auto lf = makeSimpleFormat();
+
+  SECTION("Basic range") {
+    auto f = parse_filter_decl("line_num CT 5,10", lf.get());
+    auto* lnf = dynamic_cast<LineNumberFilter*>(f.get());
+    REQUIRE(lnf != nullptr);
+    REQUIRE(lnf->line_from == 5);
+    REQUIRE(lnf->line_to == 10);
+  }
+
+  SECTION("CONTAINS long alias") {
+    auto f = parse_filter_decl("line_num CONTAINS 5,10", lf.get());
+    auto* lnf = dynamic_cast<LineNumberFilter*>(f.get());
+    REQUIRE(lnf != nullptr);
+    REQUIRE(lnf->line_from == 5);
+    REQUIRE(lnf->line_to == 10);
+  }
+
+  SECTION("Whitespace around comma") {
+    auto f = parse_filter_decl("line_num CT 5 , 10", lf.get());
+    auto* lnf = dynamic_cast<LineNumberFilter*>(f.get());
+    REQUIRE(lnf != nullptr);
+    REQUIRE(lnf->line_from == 5);
+    REQUIRE(lnf->line_to == 10);
+  }
+
+  SECTION("Single-line range") {
+    auto f = parse_filter_decl("line_num CT 42,42", lf.get());
+    auto* lnf = dynamic_cast<LineNumberFilter*>(f.get());
+    REQUIRE(lnf != nullptr);
+    REQUIRE(lnf->line_from == 42);
+    REQUIRE(lnf->line_to == 42);
+  }
+
+  SECTION("Large range") {
+    auto f = parse_filter_decl("line_num CT 0,999999", lf.get());
+    auto* lnf = dynamic_cast<LineNumberFilter*>(f.get());
+    REQUIRE(lnf != nullptr);
+    REQUIRE(lnf->line_from == 0);
+    REQUIRE(lnf->line_to == 999999);
+  }
+  teardown();
+}
+
+TEST_CASE("parse_filter_decl - line_num with wrong comparator throws") {
+  setup();
+  auto lf = makeSimpleFormat();
+
+  SECTION("EQ") {
+    REQUIRE_THROWS_AS(
+      parse_filter_decl("line_num EQ 5,10", lf.get()),
+      std::invalid_argument
+    );
+  }
+
+  SECTION("GT") {
+    REQUIRE_THROWS_AS(
+      parse_filter_decl("line_num GT 5,10", lf.get()),
+      std::invalid_argument
+    );
+  }
+
+  SECTION("BW") {
+    REQUIRE_THROWS_AS(
+      parse_filter_decl("line_num BW 5,10", lf.get()),
+      std::invalid_argument
+    );
+  }
+  teardown();
+}
+
+TEST_CASE("parse_filter_decl - line_num with non-numeric value throws") {
+  setup();
+  auto lf = makeSimpleFormat();
+
+  SECTION("Both non-numeric") {
+    REQUIRE_THROWS_AS(
+      parse_filter_decl("line_num CT abc,def", lf.get()),
+      std::invalid_argument
+    );
+  }
+
+  SECTION("First non-numeric") {
+    REQUIRE_THROWS_AS(
+      parse_filter_decl("line_num CT abc,10", lf.get()),
+      std::invalid_argument
+    );
+  }
+
+  SECTION("Second non-numeric") {
+    REQUIRE_THROWS_AS(
+      parse_filter_decl("line_num CT 5,def", lf.get()),
+      std::invalid_argument
+    );
+  }
+  teardown();
+}
+
+// ──────────────────────────────────────────────
 // FilterManagementModule commands
 // ──────────────────────────────────────────────
 
@@ -533,6 +637,23 @@ TEST_CASE("FilterManagementModule - :fset replaces existing filter") {
   auto new_filter = lpi->getFilter();
   REQUIRE(new_filter != nullptr);
   REQUIRE(new_filter != old_filter);
+
+  delete lpi;
+  teardown();
+}
+
+TEST_CASE("FilterManagementModule - :fset line_num CT sets LineNumberFilter") {
+  setup();
+  LogParserInterface* lpi = make_lpi();
+  auto term = make_filter_term(lpi);
+
+  send_cmd(term, ":fset line_num CT 5,10");
+  auto filter = lpi->getFilter();
+  REQUIRE(filter != nullptr);
+  auto* lnf = dynamic_cast<LineNumberFilter*>(filter.get());
+  REQUIRE(lnf != nullptr);
+  REQUIRE(lnf->line_from == 5);
+  REQUIRE(lnf->line_to == 10);
 
   delete lpi;
   teardown();

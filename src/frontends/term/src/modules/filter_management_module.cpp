@@ -8,6 +8,7 @@
 #include <memory>
 #include <stdexcept>
 #include <stdio.h>
+#include <string>
 
 #include "logging.hpp"
 
@@ -160,6 +161,23 @@ parse_start:
     std::string field_name = fdecl.substr(0, tag_stt_pos); trim(field_name);
     std::string value_str = fdecl.substr(tag_stt_pos + tag_size); trim(value_str);
 
+    if(field_name == "line_num"){
+      if(comp != FilterComparison::CONTAINS){
+        throw std::invalid_argument("Special filter linenum must have tag CT or CONTAINS before value");
+      }
+      // Value str should be "<digit>,<digit>"
+      size_t coma_pos = value_str.find(",");
+      std::string from_str = value_str.substr(0, coma_pos); trim(from_str);
+      std::string to_str = value_str.substr(coma_pos+1); trim(to_str);
+      if(!std::isdigit(from_str[0]) || !std::isdigit(to_str[0])){
+        throw std::invalid_argument("from/to value of line_num filter is not a valid number");
+      }
+
+      line_t from_line = std::stoul(from_str);
+      line_t to_line = std::stoul(to_str);
+
+      return std::make_shared<LineNumberFilter>(from_line, to_line);
+    }
     return std::make_shared<FieldFilter>(lfmt, field_name, comp, value_str, is_case_insensitive);
   }
 }
