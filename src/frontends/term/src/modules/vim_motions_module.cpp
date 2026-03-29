@@ -43,6 +43,10 @@ void VimMotionsModule::registerCommandCallback(LogParserTerminal& lpt) {
 
     size_t line_num = atoll(cmd.data() + 1);
     lpi->jumpToLocalLine(line_num);
+
+    if(lpi->block.contains_last_line && line_num >= lpi->block.first_line_local_id + lpi->block.size()){
+      line_num = lpi->block.first_line_local_id + lpi->block.size()-1;
+    }
     
     // Must cy + line_offset = line_num
     // Ideally don't change cy

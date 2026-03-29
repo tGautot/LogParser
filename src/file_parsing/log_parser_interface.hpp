@@ -69,7 +69,7 @@ private:
   std::shared_ptr<LineFilter> getFilter();
   void setBadFormatAccepted(bool accept, line_t global_anchor_line);
 
-  line_t highestIndexedGlobalLine(line_t global_id){return ffr->m_filtered_file_data->line_passes.size();}
+  line_t highestIndexedGlobalLine(){return ffr->m_filtered_file_data->line_passes.size();}
   bool isGlobalLineAccepted(line_t global_id){return ffr->m_filtered_file_data->line_passes[global_id];}
   line_t globalToLocalLineId(line_t global_id){
     auto& valid_lines_idx = ffr->m_filtered_file_data->valid_line_index;
