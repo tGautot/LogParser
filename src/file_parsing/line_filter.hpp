@@ -26,9 +26,10 @@ class LineFilter {
 
   bool inverted = false;
 public:
-  
+  virtual ~LineFilter() = default;
+
   void invert(){ inverted = !inverted;}
-  bool is_inverted(){ return inverted; }
+  bool is_inverted() const { return inverted; }
 
   bool passes(const ProcessedLine* pl){
     return _passes(pl) ^ inverted;
@@ -36,6 +37,11 @@ public:
   bool passes(const ParsedLine* pl){
     return _passes(pl) ^ inverted;
   }
+
+  virtual std::string to_string() const = 0;
+  virtual bool equals(const LineFilter& other) const = 0;
+  bool operator==(const LineFilter& other) const { return is_inverted() == other.is_inverted() && equals(other); }
+  bool operator!=(const LineFilter& other) const { return !(*this == other); }
 };
 
 class CombinedFilter : public LineFilter {
@@ -44,7 +50,10 @@ public:
   BitwiseOp op;
   
   CombinedFilter(std::shared_ptr<LineFilter> left, std::shared_ptr<LineFilter> right, BitwiseOp op);
-  
+
+  std::string to_string() const override;
+  bool equals(const LineFilter& other) const override;
+
 private:
   bool _passes(const ProcessedLine* pl) override;
   bool _passes(const ParsedLine* pl) override;
@@ -55,9 +64,11 @@ public:
   std::string must_contain;
   
   RawLineFilter(std::string& substr);
+
+  std::string to_string() const override;
+  bool equals(const LineFilter& other) const override;
+
 private:
-
-
   bool _passes(const ProcessedLine* pl) override;
   bool _passes(const ParsedLine* pl) override;
 };
@@ -86,11 +97,13 @@ private:
 public:
   FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, std::string& str_value, bool str_case_ins_check = false);
   FieldFilter(LineFormat* lfmt, std::string field_name, FilterComparison cmp, void* base_val, bool str_case_ins_check = false);
+
+  std::string to_string() const override;
+  bool equals(const LineFilter& other) const override;
+
 private:
   bool _passes(const ProcessedLine* pl) override;
   bool _passes(const ParsedLine* pl) override;
-
-  //bool passes(ParsedLine* pl);
 };
 
 class LineNumberFilter : public LineFilter {
@@ -98,6 +111,10 @@ public:
   line_t line_from, line_to; 
 
   LineNumberFilter(line_t from, line_t to);
+
+  std::string to_string() const override;
+  bool equals(const LineFilter& other) const override;
+
 private:
   bool _passes(const ProcessedLine* pl) override;
   bool _passes(const ParsedLine* pl) override;

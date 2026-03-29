@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 
 
@@ -283,4 +284,93 @@ bool RawLineFilter::_passes(const ProcessedLine* pl){
  bool RawLineFilter::_passes(const ParsedLine* /* unused*/){
   // TODO maybe split interface instead of having this ugly throw;
   throw std::runtime_error("_passes(ParsedLine) called on LineNumberFilter");
+}
+
+// ──────────────────────────────────────────────
+// to_string / equals
+// ──────────────────────────────────────────────
+
+static std::string comparison_to_string(FilterComparison comp){
+  switch(comp){
+  case EQUAL:       return "EQ";
+  case SMALLER:     return "ST";
+  case GREATER:     return "GT";
+  case GREATER_EQ:  return "GE";
+  case SMALLER_EQ:  return "SE";
+  case CONTAINS:    return "CT";
+  case BEGINS_WITH: return "BW";
+  case ENDS_WITH:   return "EW";
+  default: throw std::logic_error("Unknown FilterComparison in to_string");
+  }
+}
+
+static std::string bitwise_op_to_string(BitwiseOp op){
+  switch(op){
+  case AND: return "AND";
+  case OR:  return "OR";
+  case XOR: return "XOR";
+  case NOR: return "NOR";
+  default: throw std::logic_error("Unknown BitwiseOp in to_string");
+  }
+}
+
+std::string FieldFilter::to_string() const {
+  std::string tag = comparison_to_string(comp);
+  if(case_insensitive_check) tag += "_CI";
+
+  std::string value;
+  switch(targetField->ft){
+  case FieldType::INT: value = std::to_string(val_int); break;
+  case FieldType::DBL: value = std::to_string(val_dbl); break;
+  case FieldType::CHR: value = std::string(1, val_chr); break;
+  case FieldType::STR: value = val_str; break;
+  default: throw std::logic_error("Unknown field type in to_string");
+  }
+  return targetField->name + " " + tag + " " + value;
+}
+
+bool FieldFilter::equals(const LineFilter& other) const {
+  const auto* o = dynamic_cast<const FieldFilter*>(&other);
+  if(!o) return false;
+  if(targetField->name != o->targetField->name) return false;
+  if(targetField->ft != o->targetField->ft) return false;
+  if(comp != o->comp) return false;
+  if(case_insensitive_check != o->case_insensitive_check) return false;
+  switch(targetField->ft){
+  case FieldType::INT: return val_int == o->val_int;
+  case FieldType::DBL: return val_dbl == o->val_dbl;
+  case FieldType::CHR: return val_chr == o->val_chr;
+  case FieldType::STR: return val_str == o->val_str;
+  default: return false;
+  }
+}
+
+std::string LineNumberFilter::to_string() const {
+  return "line_num CT " + std::to_string(line_from) + "," + std::to_string(line_to);
+}
+
+bool LineNumberFilter::equals(const LineFilter& other) const {
+  const auto* o = dynamic_cast<const LineNumberFilter*>(&other);
+  if(!o) return false;
+  return line_from == o->line_from && line_to == o->line_to;
+}
+
+std::string CombinedFilter::to_string() const {
+  return "(" + left_filter->to_string() + ") " + bitwise_op_to_string(op) + " (" + right_filter->to_string() + ")";
+}
+
+bool CombinedFilter::equals(const LineFilter& other) const {
+  const auto* o = dynamic_cast<const CombinedFilter*>(&other);
+  if(!o) return false;
+  return op == o->op && left_filter->equals(*o->left_filter) && right_filter->equals(*o->right_filter);
+}
+
+std::string RawLineFilter::to_string() const {
+  return "raw_contains:" + must_contain;
+}
+
+bool RawLineFilter::equals(const LineFilter& other) const {
+  const auto* o = dynamic_cast<const RawLineFilter*>(&other);
+  if(!o) return false;
+  return must_contain == o->must_contain;
 }
