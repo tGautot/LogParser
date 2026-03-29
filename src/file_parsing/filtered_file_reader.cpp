@@ -238,7 +238,7 @@ bool FilteredFileReader::getNextValidLine(ProcessedLine& pl){
       
 
       pl.set_data(m_curr_line-1, s, line_size, m_config->parser.get(), m_cursor);
-      m_filtered_file_data->line_passes.push_back((pl.well_formated || m_config->accept_bad_format) && (m_config->filter == nullptr || m_config->filter->passes(&pl)));
+      m_filtered_file_data->line_passes.push_back((!pl.well_formated && m_config->accept_bad_format) || (pl.well_formated && (m_config->filter == nullptr || m_config->filter->passes(&pl))));
       if(m_filtered_file_data->line_passes.back())
         m_filtered_file_data->valid_line_index.push_back(m_curr_line-1);
 

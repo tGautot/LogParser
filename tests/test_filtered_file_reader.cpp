@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include "ConfigHandler.hpp"
 #include "processed_line.hpp"
 #include "test_helpers.hpp"
 
@@ -200,8 +201,10 @@ TEST_CASE("FilteredFileReader::setFilter - changes the active filter and resets 
 
     ffr.setFilter(nullptr);
     int without_filter = 0;
+    LOG(1, "ffr [accept_bad_fmt]=%d\n", ffr.m_config->accept_bad_format);
     while (ffr.getNextValidLine(pl)) without_filter++;
-    REQUIRE(without_filter == 62);
+    // accept_bad_format=false: 4 binary lines rejected → 62-4=58
+    REQUIRE(without_filter == 58);
   }
 
   teardown();
