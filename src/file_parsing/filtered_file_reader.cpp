@@ -116,7 +116,7 @@ void FilteredFileReader::acceptBadFormat(bool accept){
 }
 
 void FilteredFileReader::jumpToGlobalLine(line_t line_num){
-  LOG(3, "Jumping to global line %lu\n", line_num);
+  LOG(9, "Jumping to global line %lu\n", line_num);
   if(line_num >= m_file_data.line_index.size()){
     LOG(1, "Invalid index in FilteredFileReader::jumpToGlobalLine=%llu\n", line_num);
     throw std::runtime_error("Cannot use jumpToGlobalLine with an index that hasn't yet parsed");
@@ -126,7 +126,7 @@ void FilteredFileReader::jumpToGlobalLine(line_t line_num){
 }
 
 void FilteredFileReader::jumpToLocalLine(line_t line_num){
-  LOG(3, "Jumping to local line %lu\n", line_num);
+  LOG(9, "Jumping to local line %lu\n", line_num);
   if(line_num >= m_filtered_file_data->valid_line_index.size()){
     LOG(1, "Invalid index in FilteredFileReader::jumpToLocqlLine=%llu (max is %llu)\n", line_num, m_filtered_file_data->valid_line_index.size()-1);
     throw std::runtime_error("Cannot use jumpToLocqlLine with an index that hasn't yet parsed");
