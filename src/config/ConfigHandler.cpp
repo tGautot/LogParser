@@ -16,6 +16,9 @@ static std::string cfgFilePath() {
 }
 
 static const std::string DEFAULT_CFG =
+  "Here is a short explanation of the .logram config file\n"
+  "This is kind of a comment and there won't be another\n"
+  "\n"
   "[[" CFG_COMMON_PROFILE "]]\n"
   CFG_BG_COLOR      "=default\n"
   CFG_TEXT_COLOR    "=default\n"
@@ -100,6 +103,23 @@ ConfigHandler::~ConfigHandler() {
 
 void ConfigHandler::saveAll() {
   std::string path = cfgFilePath();
+
+  std::string preambule;
+  {
+    std::ifstream is(path);
+    if (!is.is_open() || !is.good()) {
+      LOG(3, "Couldn't open config file for reqd preambule in saveAll\n");
+      return;
+    }  
+    std::string s;
+    while(getline(is, s)){
+      if(s.size() >= 4 && s[0] == '[' && s[1] == '[' && s.find("]]") != std::string::npos){
+        break;
+      }
+      preambule += s + '\n';
+    }
+  }
+
   std::ofstream out(path);
   if (!out.is_open()) {
     LOG(3, "Couldn't open config file for writing in saveAll\n");
@@ -110,6 +130,9 @@ void ConfigHandler::saveAll() {
     for (const auto& [k, v] : kv)
       out << k << "=" << v << "\n";
   };
+  
+  out << preambule;
+  
   write_section(CFG_COMMON_PROFILE, s_sections[CFG_COMMON_PROFILE]);
   for (const auto& [section, kv] : s_sections) {
     out << "\n";
