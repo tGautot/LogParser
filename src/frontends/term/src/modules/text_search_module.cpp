@@ -23,22 +23,41 @@ static std::string match_str = "";
 
 static line_t search(term_state_t& state, LogParserInterface* lpi, bool forward){
   
-  line_t cursor_start_line = state.line_offset + state.cy+(forward ? searching : 0);
+  line_t cursor_start_line = state.line_offset + state.cy+(forward && searching);
   LOG(3, "Commanding next search to start at global line %lu\n", cursor_start_line);
   auto [ line_num, char_pos] = lpi->findNextOccurence(match_str, cursor_start_line, forward);
   LOG(3, "Found match at local line %llu\n", line_num);
   if(line_num == LINE_T_MAX){
-    // Dont update state
-    // TODO Show user that we found no match
-    // Or go around the file
+    throw std::runtime_error("No more matches");
   } else {
     size_t vert_offset = std::max(state.nrows / 2, 1) - 1;
-    if(line_num > vert_offset){
-      state.line_offset = line_num - vert_offset;
-      state.cy = vert_offset;
+    if(forward){
+      if((size_t) state.cy >= vert_offset){
+        state.line_offset = line_num - state.cy;
+      } else {
+        if(line_num <= state.line_offset + vert_offset){
+          state.cy = line_num - state.line_offset;
+        } else {
+          state.cy = vert_offset;
+          state.line_offset = line_num - state.cy;
+        }
+      }
     } else {
-      state.line_offset = 0;
-      state.cy = line_num;
+      if((size_t) state.cy <= vert_offset){
+        if((size_t) state.cy > line_num){
+          state.line_offset = 0;
+          state.cy = line_num;
+        } else {
+          state.line_offset = line_num - state.cy;
+        }
+      } else {
+        if(line_num >= state.line_offset + vert_offset){
+          state.cy = line_num - state.line_offset;
+        } else {
+          state.cy = vert_offset;
+          state.line_offset = line_num - state.cy;
+        }
+      }
     }
     state.cx = char_pos + state.info_col_size;
   }

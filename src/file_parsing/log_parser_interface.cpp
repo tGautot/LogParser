@@ -369,12 +369,15 @@ done:
 
 std::pair<line_t, size_t> LogParserInterface::findNextOccurence(std::string match, line_t from_local, bool forward){
   LOG(3, "Starting at line num %lu\n", from_local);
+  if(from_local >= ffr->m_filtered_file_data->valid_line_index.size()){
+    return {LINE_T_MAX, SIZE_MAX};  
+  }
   ffr->jumpToLocalLine(from_local);
   ProcessedLine pl;
   line_t offset = 0;
   while((forward) ? ffr->getNextValidLine(pl) != 0 :
                     ffr->getPreviousValidLine(pl) != 0){
-    LOG(3, "Checking str\"%s\" for match agains \"%s\"", SV_TO_STR(pl.raw_line).data(), match.data());
+    LOG(3, "Checking str\"%s\" for match agains \"%s\"\n", SV_TO_STR(pl.raw_line).data(), match.data());
     offset++;
     size_t sttpos = pl.raw_line.find(match);
     if(sttpos != std::string::npos){
