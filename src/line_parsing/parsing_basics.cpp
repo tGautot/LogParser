@@ -41,7 +41,10 @@ int parse_chr(const char** s, _ChrFieldOption* p, void* res){
 int parse_str(const char** s, _StrFieldOption* p, void* res){
   //std::cout << "Parsing STR, stop type " << p->stop_type << ", delim " << p->delim << std::endl;
   int nchar = 0;
-  auto not_eol = [&s, &nchar]()->bool{return (*s)[nchar] != 0 && (*s)[nchar] != '\n';};
+  auto not_eol = [&s, &nchar]()->bool{
+    return  (*s)[nchar] != 0 && 
+            (*s)[nchar] != '\n' && 
+            !((*s)[nchar] == '\r' && (*s)[nchar+1] == '\n');};
   if(p->stop_type == StrFieldStopType::NCHAR){
     nchar = p->nchar;
   }

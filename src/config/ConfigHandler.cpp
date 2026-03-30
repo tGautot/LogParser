@@ -21,7 +21,7 @@ static const std::string DEFAULT_CFG =
   CFG_TEXT_COLOR    "=default\n"
   CFG_SL_BG_COLOR   "=default\n"
   CFG_SL_TXT_COLOR  "=default\n"
-  CFG_LINE_FORMAT   "={STR:line}\n"
+  CFG_LINE_FORMAT   "={STR:,0}\n"
   CFG_HIDE_BAD_FMT  "=false\n"
   CFG_LINE_NUM_MODE "=global\n";
 

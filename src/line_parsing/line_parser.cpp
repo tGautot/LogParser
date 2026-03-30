@@ -62,7 +62,7 @@ bool Parser::parseLine(std::string_view line, ParsedLine* ret){
 
   const char* s = line.data();
   int nint_parsed = 0, ndbl_parsed = 0, nchr_parsed = 0, nstr_parsed = 0;
-  for(iter = parsing_routine.begin(); iter != parsing_routine.end(); iter++){
+  for(iter = parsing_routine.begin(); s < line.data() + line.size() && iter != parsing_routine.end(); iter++){
     parse_instruction_t* inst = *iter;
     LOG_FCT(9, "New inst (%d) starting at char %c (id %d)\n",  inst->ft, *s, (s - line.data())/sizeof(char));
     int res = 0;
@@ -91,8 +91,9 @@ bool Parser::parseLine(std::string_view line, ParsedLine* ret){
       return false;
     }
   }
+  LOG(3, "Arrived at %p, should be %p\n",  s, line.data() + line.size());
   LOG_EXIT();
-  return true;
+  return s == line.data() + line.size();
 
 }
 
